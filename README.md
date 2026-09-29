@@ -82,6 +82,7 @@ true rather than aspirational:
 | [Asset provenance](docs/asset-provenance.md) | Where every asset came from and whether it is safe |
 | [UK law review](docs/uk-law-privacy-review.md) | Children's code, PECR, EAA, consumer protection |
 | [Next steps](docs/santa-visit-next-steps.md) | The plan |
+| **[Picking this back up](RESUME.md)** | **Start here after a break — state, decisions, what's left, traps** |
 
 ## Credits
 

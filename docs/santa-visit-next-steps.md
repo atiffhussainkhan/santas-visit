@@ -1,5 +1,11 @@
 # Next steps — Santa's Visit
 
+> **This is the original plan, written before the code was built.** Blockers B1,
+> B2 and B3 below are now *resolved* — the character is drawn in code, the DPIA
+> exists, and the CI privacy check is in place and passing. For the current state
+> of the project and what is actually left to do, read
+> [`../RESUME.md`](../RESUME.md) instead.
+
 **What this is:** the shortest honest path from the finished requirements
 document to something you can launch. Ordered by what unblocks the rest.
 
