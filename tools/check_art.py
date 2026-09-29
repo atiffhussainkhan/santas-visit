@@ -113,6 +113,18 @@ def main(folder):
         print("  Send docs/commission-brief.md to an artist, then re-run.")
         return 0
 
+    # A documented placeholder folder with no images is the expected state
+    # before a commission lands. That is not a failure, or the build would be
+    # permanently red for anyone who has not commissioned art yet.
+    any_png = [f for f in os.listdir(folder) if f.lower().endswith(".png")]
+    if not any_png:
+        print(f"  {folder} contains no images yet — the vector character is in use.")
+        print("  This is expected until a commission is delivered.")
+        print("\n  RESULT: PASS — nothing to validate yet")
+        print("  Send docs/commission-brief.md to an artist, drop the PNGs in that")
+        print("  folder, and re-run this check.")
+        return 0
+
     present, missing, rows = [], [], []
     for pose in REQUIRED:
         p = os.path.join(folder, pose + ".png")
