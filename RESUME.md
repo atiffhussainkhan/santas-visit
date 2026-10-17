@@ -31,8 +31,9 @@ and no dependencies.
 ## 2. What state the code is in
 
 **It works, and it is complete as a demo.** The full pipeline runs end to end:
-photo → tap door/sofa/table → Santa walks in, sits, eats the cookie, drinks
-the milk, waves, leaves → save as video or postcard.
+photo → measure one real object → place Santa → brush the furniture he stands
+behind → save a still, a 9:16 cut or a postcard. It is a single static frame;
+there is no walk and no video output.
 
 All four quality gates pass:
 
@@ -51,13 +52,13 @@ These were deliberate and cost real thought. Reopening them wastes a week.
 
 | Decision | What was chosen | Why |
 |---|---|---|
-| The Santa character | **Vector Santa, drawn in code** (`santa.js`) | Zero cost, zero licence risk, nothing can be withdrawn. Photoreal is a *later upgrade*, not a prerequisite. |
+| The Santa character | **Photoreal PNGs when the complete set loads; vector fallback otherwise** | The photographic composite is the product. The PNG rights and 7.9 MB payload remain unresolved launch blockers; see `docs/asset-provenance.md`. |
 | Free AI art | **Rejected** | It came back watermarked and without an alpha channel. Unusable for a child-facing product. Pollinations' free quota is also exhausted (402). |
 | Scraping "Santa Finland" photos | **Refused** | Real tourism business images and photos of identifiable people carry copyright *and* personality rights. Monetising or not changes nothing. |
 | Season | **Christmas only** for the launch copy | The engine stays year-round-capable, so adding Halloween in October is content, not rework. |
 | Money | **Free, no monetisation** | The whole privacy promise rests on having no server. |
 | Analytics | **Never** | One tag could read the user's photo. `check_privacy.py` fails the build if one appears. |
-| Character photography | `santa-photo.js` adapter is **already built** | So commissioned art is a file drop later, not a rushed refactor. |
+| Character photography | Nine PNG poses currently ship through `santa-photo.js` | Their technical integration is complete. Their provenance is not; do not infer permission from their presence in the repository. |
 
 ---
 
@@ -65,22 +66,14 @@ These were deliberate and cost real thought. Reopening them wastes a week.
 
 Ordered by what unblocks the rest.
 
-**A. Test the video export on a real iPhone — do this first.**
-It is the single known technical risk. iOS `MediaRecorder` has a keyframe bug
-that produces a file which *reports* the right duration and then plays for 0.1
-seconds and freezes. Everything else is already built, so if export is broken
-on iOS, that is the thing that matters.
+**A. Clear the photoreal asset rights — do this before publishing.**
+`docs/asset-provenance.md` records what is missing. The code cannot establish
+the generation service's commercial terms or the model's likeness consent.
+Until both are documented, the photoreal set is not cleared for release.
 
-```bash
-python3 tools/device_server.py 8099
-# open http://<your-lan-ip>:8099/mobile_test.html on the phone
-```
-
-**B. Commission photoreal Santa art — optional, only if you want it.**
-`docs/commission-brief.md` is ready to send unedited. Budget roughly
-£150–£600. Drop the delivered PNGs into `assets/santa/` and run
-`bash tools/check_art.py`; it validates size, alpha channel, foot contact and
-height consistency before anything gets wired in.
+**B. Resolve the payload overrun.**
+The same provenance record documents 7.9 MB of Santa art against the 3 MB
+requirement. Optimise or revise the requirement honestly; do not hide it.
 
 **C. Get the DPIA reviewed — required before launch.**
 `docs/dpia-santas-visit.md` is written and maps all fifteen Children's code
@@ -122,6 +115,7 @@ If you find these referenced anywhere, they are gone on purpose:
 
 ## 7. If you only remember one thing
 
-The product is **finished and working**. The remaining work is: prove the video
-export on a phone, get the DPIA reviewed, and pick a host. Do not start
-rewriting the engine — there is nothing wrong with it.
+The static compositor is working, but the product is **not cleared to ship**.
+The remaining work is: clear the photoreal asset rights, resolve the payload
+decision, get the DPIA reviewed, test still downloads on real phones, and pick
+a host. There is no video-export milestone.

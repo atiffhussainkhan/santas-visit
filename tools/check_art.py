@@ -75,7 +75,8 @@ def analyse(path):
     stride = w * nch
     # Bounding box of non-transparent content, if any alpha at all.
     if has_alpha:
-        top, bottom, left, right = h, -1, w, -1
+        top, body_top, bottom, left, right = h, h, -1, w, -1
+        body_x0, body_x1 = int(w * 0.30), int(w * 0.70 + 0.999)
         for y in range(h):
             base = y * stride
             row_used = False
@@ -87,18 +88,23 @@ def analyse(path):
                         if y > bottom: bottom = y
                     if x < left: left = x
                     if x > right: right = x
+                    if body_x0 <= x <= body_x1 and y < body_top:
+                        body_top = y
         if bottom < 0:
             return dict(ok=False, why="image is fully transparent", w=w, h=h, has_alpha=has_alpha)
         foot_margin = (h - 1 - bottom) / h
         head_margin = top / h
         content_h = bottom - top + 1
+        body_h = bottom - body_top + 1 if body_top < h else content_h
         # Crop: is it head-to-toe, or cut off at the sides?
         cropped = (left == 0 or right == w - 1)
     else:
         foot_margin = head_margin = 0.0
         content_h = h
+        body_h = h
         cropped = True
     return dict(ok=True, w=w, h=h, has_alpha=has_alpha, content_h=content_h,
+                body_h=body_h, pose_scale=h / body_h,
                 foot_margin=foot_margin, head_margin=head_margin,
                 cropped=cropped, nch=nch)
 
@@ -149,7 +155,9 @@ def main(folder):
                          "feet — he will float above the floor")
         if info.get("cropped"):
             notes.append("touches a side edge — check nothing is cropped off")
-        rows.append((pose, f"{info.get('w')}x{info.get('h')}  " +
+        rows.append((pose, f"{info.get('w')}x{info.get('h')}  "
+                     f"body {info.get('body_h')}px  "
+                     f"scale {info.get('pose_scale', 1):.5f}  " +
                      ("; ".join(notes) if notes else "looks good"),
                      "no" if notes else "ok"))
 
@@ -165,11 +173,13 @@ def main(folder):
             ok_heights.append(analyse(os.path.join(folder, pose + ".png")).get("h"))
         except Exception:
             pass
+    height_issue = False
     if len(ok_heights) > 1:
         lo, hi = min(ok_heights), max(ok_heights)
         spread = (hi - lo) / lo
         if spread > HEIGHT_TOLERANCE:
-            print(f"  WARN height spread {spread*100:.1f}% across the set "
+            height_issue = True
+            print(f"  FAIL height spread {spread*100:.1f}% across the set "
                   f"({lo}-{hi}px), limit {HEIGHT_TOLERANCE*100:.0f}% — he will visibly resize")
         else:
             print(f"  OK   heights consistent within {spread*100:.1f}%")
@@ -179,8 +189,9 @@ def main(folder):
         print(f"  RESULT: INCOMPLETE — {len(present)}/{len(REQUIRED)} poses delivered")
         return 1
     bad = [r for r in rows if r[2] == "no"]
-    if bad:
-        print(f"  RESULT: NEEDS FIXING — {len(bad)} file(s) have issues listed above")
+    if bad or height_issue:
+        count = len(bad) + (1 if height_issue else 0)
+        print(f"  RESULT: NEEDS FIXING — {count} issue(s) listed above")
         return 1
     print("  RESULT: USABLE — drop these in and the photoreal swap is a no-op")
     return 0

@@ -81,8 +81,8 @@ class Srv(socketserver.ThreadingMixIn, socketserver.TCPServer):
 if __name__ == "__main__":
     ip = lan_ip()
     with Srv(("0.0.0.0", PORT), H) as httpd:
-        print(f"phone   : http://{ip}:{PORT}/santa-visit/mobile_test.html")
-        print(f"laptop  : http://localhost:{PORT}/santa-visit/mobile_test.html")
+        print(f"phone   : http://{ip}:{PORT}/mobile_test.html")
+        print(f"laptop  : http://localhost:{PORT}/mobile_test.html")
         print(f"result  : {REPORT}")
         print("waiting for the phone... (ctrl-c to stop)", flush=True)
         httpd.serve_forever()

@@ -100,9 +100,38 @@
   }
 
   /* A short still, for the share card and the postcards' thumbnail. */
+  /* The honest-AI disclosure, on EVERY exported image.
+   *
+   * Only the postcards used to carry it. The two stills — the full-frame PNG
+   * and the 9:16 — are the pictures people actually post, and a disclosure
+   * that is missing from the shareable artefact is not a disclosure at all.
+   * Drawn here rather than per-call-site so a future export cannot forget. */
+  const DISCLOSURE = "✦ AI-generated — Santa is not real";
+  function stampDisclosure(ctx, w, h) {
+    const s = Math.min(w, h);
+    const fs = Math.max(9, Math.round(s * 0.020));
+    const pad = Math.round(fs * 0.7);
+    ctx.save();
+    ctx.font = "600 " + fs + "px -apple-system, Helvetica, Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const tw = ctx.measureText(DISCLOSURE).width;
+    ctx.fillStyle = "rgba(10,14,24,0.62)";
+    ctx.fillRect(pad, h - pad - fs * 1.5, tw + pad * 2, fs * 1.5);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText(DISCLOSURE, pad * 2, h - pad - fs * 0.75);
+    ctx.restore();
+  }
+
   async function exportStill(canvas, render, t) {
-    render(t === undefined ? 0.55 : t);
+    if (render) render(t === undefined ? 0.55 : t);
+    stampDisclosure(canvas.getContext("2d"), canvas.width, canvas.height);
     return new Promise((r) => canvas.toBlob(r, "image/png"));
+  }
+
+  function verticalDimensions(sourceHeight) {
+    const height = Math.max(1, Math.round(sourceHeight));
+    return { width: Math.max(1, Math.round(height * 9 / 16)), height };
   }
 
   /* 9:16 vertical, for Stories / Reels / TikTok / Shorts.
@@ -115,14 +144,12 @@
    */
   function verticalCanvas(source, opts) {
     const o = Object.assign({ caption: "", ground: "#0d1120" }, opts || {});
-    const targetAR = 9 / 16;
+    const size = verticalDimensions(source.height);
     const band = Math.round(source.height * 0.18);      // room for the caption
-    const areaH = source.height - band;
-    const w = Math.round(areaH * targetAR);
-    const h = areaH + band;
+    const areaH = size.height - band;
     const c = document.createElement("canvas");
-    c.width = Math.max(w, Math.round(source.width * 0.5));
-    c.height = h;
+    c.width = size.width;
+    c.height = size.height;
     const ctx = c.getContext("2d");
     ctx.fillStyle = o.ground;
     ctx.fillRect(0, 0, c.width, c.height);
@@ -136,6 +163,7 @@
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(o.caption, c.width / 2, areaH + band * 0.5, c.width * 0.92);
     }
+    stampDisclosure(c.getContext("2d"), c.width, c.height);
     return c;
   }
 
@@ -155,5 +183,6 @@
 
   global.ExportVideo = {
     capabilities, exportVideo, exportStill, verticalCanvas, download, suggestName,
+    stampDisclosure, verticalDimensions,
   };
 })(typeof window !== "undefined" ? window : globalThis);

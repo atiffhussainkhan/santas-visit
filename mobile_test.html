@@ -23,22 +23,25 @@
   td:last-child { text-align:right; white-space:nowrap; }
   .ok { color:#7ff0bd; } .no { color:#ff9d9d; } .mid { color:#ffd980; }
   .note { color:#98a2c0; font-size:.8rem; margin-top:20px; }
-  video { width:100%; border-radius:10px; margin-top:12px; background:#000; }
+  .preview { width:100%; border-radius:10px; margin-top:12px; background:#000; }
+  a.save { display:block; padding:12px; margin:8px 0; border-radius:10px;
+           background:#1e2740; color:#ffd24c; text-align:center; }
 </style>
 </head>
 <body>
 <h1>🎅 Device export test</h1>
-<p class="sub">Runs the real recording path your phone will use, and reports the result back automatically.</p>
+<p class="sub">Builds the same full-frame, postcard and 9:16 PNG files the app saves.</p>
 
 <button id="go">▶ Run the test on this device</button>
 <div class="verdict busy" id="v">Not run yet</div>
 
 <table id="t"></table>
-<video id="play" controls playsinline></video>
-<p class="note">This records 4 seconds from a canvas, then plays the file back and
-measures how long it actually plays. A file that reports the right length but
-stops early is the failure mode we are hunting.</p>
+<div id="downloads"></div>
+<p class="note">Open each generated PNG below, save it to Photos, and confirm it
+is not blank or cropped. The vertical file must report a 9:16 size.</p>
 
+<script src="postcards.js"></script>
+<script src="export.js"></script>
 <script>
 const V = document.getElementById("v"), T = document.getElementById("t");
 const rows = [];
@@ -47,153 +50,93 @@ function add(name, val, cls) {
   T.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td class="${r[2]}">${r[1]}</td></tr>`).join("");
 }
 const say = (t, c) => { V.textContent = t; V.className = "verdict " + c; };
-
-// Report to the collector if one is reachable; never let that break the test.
-function report(payload) {
-  const go = () => {
-    try {
-      fetch("/report", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload), keepalive: true,
-      }).catch(() => {});
-    } catch (e) {}
-  };
-  // Same-origin when served by the collector; fall back to no-op.
-  go();
+function report(verdict, detail) {
+  try {
+    fetch("/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        test: "png-exports", verdict, detail: detail || "",
+        ua: navigator.userAgent,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) { /* the standalone page still shows its local verdict */ }
 }
 
 const canvas = document.createElement("canvas");
 canvas.width = 640; canvas.height = 400;
 const cx = canvas.getContext("2d");
 
-let frames = 0;
-function draw(t) {
-  // A deliberately busy scene: moving shapes catch dropped/black frames that a
-  // static colour test would miss.
-  cx.fillStyle = "#1a2138"; cx.fillRect(0, 0, 640, 400);
-  cx.fillStyle = "#c1272d";
-  cx.beginPath();
-  cx.arc(320 + Math.cos(t / 400) * 180, 200 + Math.sin(t / 400) * 90, 55, 0, 7);
-  cx.fill();
-  cx.fillStyle = "#ffd24c";
-  cx.fillRect(20, 20, (t / 16) % 600, 24);
-  frames++;
-  if (running) requestAnimationFrame(draw);
-}
-let running = false;
-
-function supportedTypes() {
-  if (typeof MediaRecorder === "undefined") return [];
-  return [
-    "video/mp4;codecs=avc1.42E01E",
-    "video/mp4",
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-  ].filter(t => {
-    try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; }
-  });
+function drawScene() {
+  const g = cx.createLinearGradient(0, 0, 0, canvas.height);
+  g.addColorStop(0, "#697996"); g.addColorStop(1, "#3d342e");
+  cx.fillStyle = g; cx.fillRect(0, 0, canvas.width, canvas.height);
+  cx.fillStyle = "#49695f"; cx.fillRect(390, 190, 200, 115);
+  cx.fillStyle = "#6b4a32"; cx.fillRect(165, 275, 210, 48);
+  cx.fillStyle = "#c1272d"; cx.beginPath(); cx.arc(320, 205, 68, 0, 7); cx.fill();
+  cx.fillStyle = "#fff"; cx.font = "700 24px system-ui";
+  cx.fillText("Santa still export test", 24, 42);
 }
 
 document.getElementById("go").addEventListener("click", run);
 
-async function run() {
-  running = true; frames = 0;
-  say("Testing…", "busy");
-  add("MediaRecorder", typeof MediaRecorder !== "undefined" ? "available" : "MISSING",
-      typeof MediaRecorder !== "undefined" ? "ok" : "no");
-  add("canvas.captureStream", typeof canvas.captureStream === "function" ? "available" : "MISSING",
-      typeof canvas.captureStream === "function" ? "ok" : "no");
-  add("VideoEncoder (WebCodecs)", typeof VideoEncoder !== "undefined" ? "available" : "absent",
-      typeof VideoEncoder !== "undefined" ? "ok" : "mid");
+function blobOf(c) {
+  return new Promise(resolve => c.toBlob(resolve, "image/png"));
+}
 
-  const types = supportedTypes();
-  add("Encoders offered", types.length ? types.map(t => t.split(";")[0]).join(", ") : "none",
-      types.length ? "ok" : "no");
-  if (!types.length) {
-    say("FAIL — this browser cannot record video", "fail");
-    report({ test: "export", verdict: "fail", reason: "no supported mime type", ua: navigator.userAgent });
-    return;
-  }
-
-  const mime = types[0];
-  const stream = canvas.captureStream(30);
-  const chunks = [];
-  let rec;
-  try {
-    rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_000_000 });
-  } catch (e) {
-    say("FAIL — MediaRecorder rejected the encoder", "fail");
-    report({ test: "export", verdict: "fail", reason: "constructor threw: " + e.message, ua: navigator.userAgent });
-    return;
-  }
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(r => (rec.onstop = r));
-  rec.start(250);
-
-  requestAnimationFrame(draw);
-  await new Promise(r => setTimeout(r, 4000));
-  rec.stop();
-  await stopped;
-  running = false;
-
-  const blob = new Blob(chunks, { type: mime });
-  const bytes = blob.size;
-  add("Recorded size", (bytes / 1024).toFixed(0) + " KB", bytes > 20000 ? "ok" : "no");
-  add("Frames drawn", String(frames), frames > 60 ? "ok" : "mid");
-
-  if (bytes < 10000) {
-    say("FAIL — the recording came out empty", "fail");
-    report({ test: "export", verdict: "fail", reason: "blob only " + bytes + " bytes", ua: navigator.userAgent });
-    return;
-  }
-
-  // The real test: does it actually PLAY, and for how long?
+function addDownload(name, blob) {
   const url = URL.createObjectURL(blob);
-  const v = document.getElementById("play");
-  v.src = url;
-  const meta = await new Promise(res => {
-    v.onloadedmetadata = () => res({ dur: v.duration, w: v.videoWidth, h: v.videoHeight });
-    v.onerror = () => res(null);
-    setTimeout(() => res(null), 6000);
-  });
+  const a = document.createElement("a");
+  a.className = "save"; a.href = url; a.download = name;
+  a.textContent = "Open / save " + name;
+  document.getElementById("downloads").appendChild(a);
+}
 
-  if (!meta) {
-    say("FAIL — the file will not play at all", "fail");
-    report({ test: "export", verdict: "fail", reason: "video element refused the blob", mime, bytes, ua: navigator.userAgent });
-    return;
-  }
-  add("Reported duration", meta.dur ? meta.dur.toFixed(2) + "s" : "unknown", meta.dur > 0 ? "ok" : "mid");
-  add("Resolution", meta.w + "x" + meta.h, "mid");
+async function run() {
+  rows.length = 0; T.innerHTML = "";
+  document.getElementById("downloads").textContent = "";
+  say("Testing PNG export…", "busy");
+  try {
+    const still = await ExportVideo.exportStill(canvas, drawScene, 0);
+    add("Full-frame PNG", still && still.size > 5000
+        ? Math.round(still.size / 1024) + " KB" : "empty",
+        still && still.size > 5000 ? "ok" : "no");
 
-  // Play it through and see how much of the duration actually advances.
-  const played = await new Promise(res => {
-    let end = 0;
-    const t0 = performance.now();
-    v.onended = () => { end = v.currentTime; };
-    v.currentTime = 0;
-    const iv = setInterval(() => {
-      end = Math.max(end, v.currentTime);
-      if (v.ended || performance.now() - t0 > 12000) { clearInterval(iv); res(end); }
-    }, 120);
-    v.play().catch(() => {});
-  });
+    drawScene();
+    const vertical = ExportVideo.verticalCanvas(canvas, { caption: "Santa came to our house" });
+    const verticalBlob = await blobOf(vertical);
+    const exact = vertical.width === Math.round(vertical.height * 9 / 16);
+    add("Vertical dimensions", vertical.width + "×" + vertical.height,
+        exact ? "ok" : "no");
+    add("Vertical PNG", verticalBlob && verticalBlob.size > 5000
+        ? Math.round(verticalBlob.size / 1024) + " KB" : "empty",
+        verticalBlob && verticalBlob.size > 5000 ? "ok" : "no");
 
-  const expected = meta.dur && meta.dur > 0 ? meta.dur : 4;
-  const got = played > 0 ? played : 0;
-  const ratio = got / expected;
-  add("Actually played", got.toFixed(2) + "s of " + expected.toFixed(2) + "s",
-      ratio > 0.8 ? "ok" : "no");
+    const card = document.createElement("canvas");
+    card.width = canvas.width; card.height = canvas.height;
+    Postcards.render(card.getContext("2d"), "evidence", {
+      w: card.width, h: card.height, room: canvas,
+      santa: null, place: { x: 320, y: 300 },
+    });
+    const cardBlob = await blobOf(card);
+    add("Postcard PNG", cardBlob && cardBlob.size > 5000
+        ? Math.round(cardBlob.size / 1024) + " KB" : "empty",
+        cardBlob && cardBlob.size > 5000 ? "ok" : "no");
 
-  if (ratio > 0.8) {
-    say("PASS — video records and plays in full", "pass");
-    report({ test: "export", verdict: "pass", mime, bytes, expected, got, ua: navigator.userAgent });
-  } else if (got > 0.2) {
-    say("PARTIAL — plays then freezes (" + got.toFixed(1) + "s of " + expected.toFixed(1) + "s)", "warn");
-    report({ test: "export", verdict: "partial", mime, bytes, expected, got, ua: navigator.userAgent });
-  } else {
-    say("FAIL — records but does not play", "fail");
-    report({ test: "export", verdict: "fail", reason: "played " + got.toFixed(2) + "s", mime, bytes, ua: navigator.userAgent });
+    if (!still || !verticalBlob || !cardBlob || !exact ||
+        still.size <= 5000 || verticalBlob.size <= 5000 || cardBlob.size <= 5000) {
+      throw new Error("one or more PNG outputs failed");
+    }
+    addDownload("santa-full.png", still);
+    addDownload("santa-vertical.png", verticalBlob);
+    addDownload("santa-postcard.png", cardBlob);
+    say("PASS — all three PNG outputs were built", "pass");
+    report("pass", vertical.width + "x" + vertical.height);
+  } catch (e) {
+    add("Error", e.message, "no");
+    say("FAIL — PNG export did not complete", "fail");
+    report("fail", e.message);
   }
 }
 </script>

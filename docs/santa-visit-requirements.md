@@ -1,7 +1,7 @@
 # Requirements — "Santa's Visit" (working title)
 
 **Project:** Personalised Santa-visit experience for a user's own home photo
-**Status:** Requirements, pre-build
+**Status:** Implemented static-photo scope
 **Author:** prepared for Atif Hussain
 **Date:** 2026-09-28
 **Version:** 2.0 — post-review (see `requirements-review.md` and
@@ -11,10 +11,10 @@
 
 ## 1. Executive summary
 
-A website where someone uploads a photo of their own living room, taps where
-their **door**, **sofa** and **table** are, and watches a short looping video of
-Santa Claus walk in through their door, sit on their sofa, drink the milk, eat
-the cookie, and leave — placed and scaled to *their* actual room.
+A website where someone opens a photo of their own living room, places Santa,
+measures one visible object with an on-photo ruler, and saves a still image.
+Santa is scaled from that real measurement, matched to the room's light and
+focus, and can be brushed behind foreground furniture.
 
 ### The three decisions that define this project
 
@@ -22,7 +22,7 @@ the cookie, and leave — placed and scaled to *their* actual room.
 |---|---|
 | **100% client-side processing** | The photo never leaves the user's device. No upload, no storage, no server sees it. |
 | **Pre-generated character assets** | Zero generation cost at runtime → **$0 per user, forever**, at any scale. |
-| **Furniture-anchored, not face-swapped** | Nobody in the market does this. It's the differentiator. |
+| **Room-measured, not face-swapped** | A ruler against the user's own furniture gives Santa a defensible physical scale. |
 
 Cost to serve: **$0** (static hosting, no API calls at runtime). Cost to the
 user: **$0**.
@@ -234,13 +234,13 @@ Taking the best of the market, then adding what nobody has.
 | # | Unique feature | Why it wins |
 |---|---|---|
 | **U1** | **Zero server contact — a hard, provable guarantee** | Every competitor processes on a server. We can state it, prove it, and let users verify with DevTools. This is the headline. |
-| **U2** | **Santa placed in *your* actual room** — anchored to your door, sofa and table, scaled to perspective | Everyone transforms faces. Nobody composes a character into the viewer's own space. |
+| **U2** | **Santa placed in *your* actual room** — positioned by the user and scaled from one measured real object | Everyone transforms faces. Nobody composes a character into the viewer's own measured space. |
 | **U3** | **"Where will Santa sit?" preview** before generating anything | Removes the fear of wasting effort. No competitor has it. |
 | **U4** | **A present, not a filter** — the experience is framed as a gift, with a share card and a recipient-facing "open your visit" pass | Changes the intent from self-entertainment to gifting — the actual reason people share these. |
 | **U5** | **Child-redeemable pass code** — the sender generates a short code and frames it as a Christmas-morning surprise for a specific person | Emotional payload no filter has. Generated locally; the code carries no personal data. |
 | **U6** | **Works without faces** — a photo of a room with nobody in it is a first-class input, not an error | Widens the audience, and is a genuine accessibility win. |
 | **U7** | **House rules mode** — "we don't have a fireplace", "no kids, keep it classy", "he's terrified of the dog" | Playful control that changes the scene, not just the filter. |
-| **U8** | **Deterministic replay** — same photo + same taps always produce the same video | AI video is non-deterministic; ours is not. Means it can be re-shared, printed, kept. |
+| **U8** | **Deterministic render** — same photo, ruler, placement and pose produce the same still | Generative output is non-deterministic; this compositor is not. The result can be re-saved and printed. |
 
 ---
 
@@ -253,21 +253,21 @@ Taking the best of the market, then adding what nobody has.
 | FR-01 | User lands on a page that states, in plain English, that the photo never leaves their device | Must |
 | FR-02 | User supplies a photo via file picker, drag-and-drop, clipboard paste, or device camera | Must |
 | FR-03 | Photo is validated client-side (type, decodable, dimensions, file size) with a clear error | Must |
-| FR-04 | **Preview of the photo with 3 placeable markers**: 🚪 Door, 🛋️ Sofa, 🍪 Table | Must |
-| FR-05 | Markers placed by **tap/drag**, always; auto-detection is an optional assist, never required | Must |
-| FR-06 | **U3 Preview step** — a static "plan view" showing Santa's walk path and where he will sit, before generation | Must |
-| FR-07 | Scene picker: Classic / Cartoon / Grinch / Spooky | Must |
-| FR-08 | Two animation modes: **Relive the night** (realistic) and **Have some fun** (comic) | Must |
-| FR-09 | Personal fields, all optional: display name, who's visiting, a wish, an inside joke | Must |
-| FR-10 | **U7 House rules** toggles: no fireplace, keep it classy, he's scared of the dog | Should |
+| FR-04 | **Preview with one Santa marker and a two-ended ruler** | Must |
+| FR-05 | Santa and both ruler ends are adjustable by drag; no detection is required | Must |
+| FR-06 | Preview is the actual final composition, updated as placement, ruler or pose changes | Must |
+| FR-07 | Pose picker: seated, drinking, eating, cheering, waving and standing | Must |
+| FR-08 | Optional room-light matching and user-painted foreground occlusion | Must |
+| FR-09 | Ruler reference picker includes common objects with known heights | Must |
+| FR-10 | Occlusion brush provides size, paint/erase, undo and clear controls | Must |
 | FR-11 | **U6 Face-free mode** — a room with no people is fully supported | Must |
-| FR-12 | The scene plays: enters at the door → walks to the sofa → sits → reaches the table → eats the cookie → drinks the milk → leaves | Must |
-| FR-13 | Ambient layer: falling snow + a warm glow that tracks Santa + sparkle trail on his path | Must |
+| FR-12 | Santa remains at the user's chosen position in one static photograph | Must |
+| FR-13 | Compositing includes room-derived luminance/white balance, grain, defocus, contact shadow and edge light wrap | Must |
 | FR-14 | **Honest-AI badge** baked into the output (see §6, PR-06) | Must |
-| FR-15 | Export video (WebM, then MP4 where supported) | Must |
-| FR-16 | Export 9:16 vertical variant for Stories/TikTok/Shorts | Should |
-| FR-17 | **U4 Share card** — a still frame with the personal message, designed for WhatsApp | Must |
-| FR-18 | **U5 Pass code** — a short code the recipient enters on their own device to "open their visit" | Should |
+| FR-15 | Export the composed scene as a PNG still | Must |
+| FR-16 | Export an exact 9:16 letterboxed PNG for Stories/TikTok/Shorts | Should |
+| FR-17 | Export three locally rendered postcard designs | Must |
+| FR-18 | Display the measured Santa height and warn when ruler depth differs materially from placement depth | Must |
 | FR-19 | **Privacy kill switch** — one control that wipes photo, all derived assets and the plan, and reloads | Must |
 | FR-20 | Nothing persists across a page reload | Must |
 
@@ -275,12 +275,12 @@ Taking the best of the market, then adding what nobody has.
 
 | ID | Requirement |
 |---|---|
-| FR-21 | Santa is a **single fixed sprite set**, generated once at build time. He must be pixel-identical in every frame of every video |
-| FR-22 | Santa is placed by the user's three anchors, positioned and **scaled by perspective** — nearer anchors render him larger |
-| FR-23 | Movement between anchors follows a smooth path with natural easing, not straight lines |
-| FR-24 | A gentle **2.5D parallax** shift on the background sells depth without needing depth estimation |
-| FR-25 | Contact shadow under Santa, scaled with his distance |
-| FR-26 | Timing is scripted and identical every run (U8) |
+| FR-21 | Santa uses a fixed local photoreal pose set, with a vector fallback only if that complete set cannot load |
+| FR-22 | Santa's scale derives from the user's ruler and the selected object's real height |
+| FR-23 | The user controls one static placement; there is no inferred path or movement |
+| FR-24 | Original room pixels can be painted back over Santa so foreground furniture genuinely occludes him |
+| FR-25 | A contact shadow is grounded at the pose's measured lowest point |
+| FR-26 | Rendering is deterministic for the same photo and controls (U8) |
 
 ### 5.3 Personalisation (all local)
 
@@ -288,7 +288,7 @@ Taking the best of the market, then adding what nobody has.
 |---|---|
 | FR-27 | Display name rendered on the share card and inside the scene if the user opted in |
 | FR-28 | If audio is enabled (see §7), the greeting is spoken and lip-synced to Santa's sprite |
-| FR-29 | Text must never be baked into the video via a font that requires a network fetch — fonts ship locally |
+| FR-29 | Export text must use system/local fonts and never require a network fetch |
 
 ---
 
@@ -329,23 +329,23 @@ Taking the best of the market, then adding what nobody has.
 |---|---|---|
 | FR-35 | **Downscale oversized inputs.** Phone photos are routinely 3–8 MP; iOS Safari caps canvas area (~16.7 MP) and a 108 MP image will silently fail to draw. Any input is rescaled to a working ceiling before compositing | Must |
 | FR-36 | **Apply EXIF orientation.** Phone photos store rotation in EXIF, not pixels; drawn naively, portrait photos render sideways. Use `createImageBitmap(..., {imageOrientation: "from-image"})` | Must |
-| FR-37 | **Anchors are adjustable and undoable.** Drag-adjust after placement; undo/redo; "start over" must not discard the photo | Must |
+| FR-37 | **Placement and ruler are adjustable.** The occlusion brush has exact stroke undo; clearing it must not discard the photo | Must |
 | FR-38 | **Pre-flight quality guidance** (adopted from InsMind) — check framing, whether a room is visible, and lighting *before* the user invests effort, with a plain fix-it message | Must |
 | FR-39 | Normalise colour space so wide-gamut (P3) photos do not render differently between browsers | Should |
 | FR-40 | Portrait and landscape inputs both supported; a room-only photo is a first-class case (FR-11) | Must |
-| FR-41 | Generation progress and an explicit "your video is ready" — a frozen spinner for 10 s is a churn point | Must |
-| FR-42 | **Captions / text alternative** on the exported video, and a screen-reader description of what happens in the scene | Should |
+| FR-41 | Saving reports success or a plain failure message; it must never leave a frozen busy state | Must |
+| FR-42 | Controls and exported disclosure have accessible text equivalents | Should |
 
-### 5.5 Export and encoding (added by review — the highest technical risk)
+### 5.5 Still export
 
 | ID | Requirement | Priority |
 |---|---|---|
-| FR-30 | **Feature-detect the output format at runtime** with `MediaRecorder.isTypeSupported()`. There is no single format that works everywhere — see the matrix in RISK-2 | Must |
-| FR-31 | Preferred order: MP4/H.264 where supported → WebM/VP9 → animated fallback | Must |
-| FR-32 | **Prefer deterministic frame-by-frame encoding via WebCodecs `VideoEncoder`** rather than realtime `MediaRecorder` capture, so U8 (identical output every run) is actually achieved. Fall back to `MediaRecorder` where WebCodecs is absent, and document that output is then not bit-identical | Must |
-| FR-33 | **No server-side and no `ffmpeg.wasm` transcode path** — it requires `SharedArrayBuffer`, which requires COOP/COEP headers that shared hosting cannot set. See RISK-2 | Must |
-| FR-34 | **Explicitly test the iOS keyframe bug** where `MediaRecorder` output plays ~0.1 s then freezes as a still. Verify on a real iPhone before release | Must |
-| FR-43 | **Share format must suit the target channel.** WhatsApp does not accept WebM. When only WebM is available, the share card is offered as a **still image**, not a video | Must |
+| FR-30 | Full-frame, vertical and postcard outputs are PNG files produced with canvas `toBlob()` | Must |
+| FR-31 | Save failures (including a null/empty blob) produce a plain recovery message | Must |
+| FR-32 | The vertical output dimensions are exactly 9:16, with the uncropped room letterboxed inside | Must |
+| FR-33 | No server-side or transcoding path is permitted | Must |
+| FR-34 | Test PNG download/share behaviour on physical iOS and Android devices before release | Must |
+| FR-43 | Postcards export the card currently displayed, not a newly rendered ordinary scene | Must |
 
 ### 5.6 Product and commercial (added by review)
 
@@ -364,18 +364,18 @@ Taking the best of the market, then adding what nobody has.
 | OP-01 | Santa voice greeting | Needs local TTS or a paid API — would break U1 unless done in-browser |
 | OP-02 | Multiple characters (elf, reindeer) | Extends FR-21 |
 | OP-03 | Pets reacting | Builds on #9 |
-| OP-04 | Photorealistic mode (paid, server-side) | Would break U1 — only as an explicit opt-in with clear disclosure |
+| OP-04 | Additional cleared photoreal pose sets | Must remain static/local to preserve U1 |
 | OP-05 | Photo-based "wrapping paper" generation | Reuses the render pipeline |
 
 ---
 
 ## 8. Out of scope
 
-- Any server-side image or video processing, now or later, unless the whole
+- Any server-side image processing, now or later, unless the whole
   privacy model is revisited and re-approved
 - Accounts, logins, cloud saves, sharing via our servers
 - Native app store releases (agreed as a later phase)
-- Uploading finished videos to a server on the user's behalf
+- Uploading finished images to a server on the user's behalf
 
 ---
 
@@ -384,18 +384,18 @@ Taking the best of the market, then adding what nobody has.
 | ID | Requirement |
 |---|---|
 | NFR-01 | First meaningful paint < 1.5 s on a mid-range phone |
-| NFR-02 | Scene renders at 30 fps on a 2019-class phone; degrade gracefully to 24 fps |
+| NFR-02 | Drag and brush previews remain responsive on a 2019-class phone |
 | NFR-03 | Total download < 3 MB including Santa sprite set |
 | NFR-04 | Works offline once loaded (service worker) — a further privacy guarantee, since it proves no network dependency |
 | NFR-05 | WCAG 2.1 AA: keyboard operable, focus visible, screen-reader labelled, honours `prefers-reduced-motion`. **Continuous falling snow is disabled under `prefers-reduced-motion`** — this resolves a direct conflict with FR-13 |
 | NFR-06 | No console errors; no mixed content |
 | NFR-07 | Runs on Safari 15+, Chrome 110+, Firefox 110+, iOS Safari 15+ |
-| NFR-08 | Graceful message when `MediaRecorder`, `OffscreenCanvas` or WebCodecs are unavailable |
+| NFR-08 | Graceful message when canvas PNG export is unavailable or returns an empty blob |
 | NFR-09 | Memory freed on reset; verified with no unbounded growth over 50 consecutive renders |
 | NFR-10 | Handles a 108 MP input without failure (downscale per FR-35) | Must |
-| NFR-11 | Compositing runs in a `Worker` with `OffscreenCanvas` so the main thread never blocks on decode | Must |
+| NFR-11 | Expensive repaints are frame-coalesced and photo-wide measurements are cached | Must |
 | NFR-12 | Explicit memory budget with a graceful failure path when exceeded | Should |
-| NFR-13 | Verified on a real iPhone, specifically for the MediaRecorder keyframe failure (FR-34) | Must |
+| NFR-13 | PNG still and 9:16 downloads verified on a real iPhone (FR-34) | Must |
 | NFR-14 | Must not hold the screen awake or spin CPU while idle | Should |
 
 ---
@@ -407,15 +407,15 @@ Taking the best of the market, then adding what nobody has.
 │                                                                             │
 │  File / camera  ──►  ImageBitmap (in memory only)                           │
 │                            │                                                │
-│                            ├──► Anchor placement UI (FR-04/05)              │
-│                            ├──► Plan preview (FR-06)                         │
+│                            ├──► Placement + ruler UI (FR-04/05)             │
+│                            ├──► Live final preview (FR-06)                   │
 │                            │                                                │
 │                            ▼                                                │
 │                   Canvas compositor                                        │
-│         background  + parallax + Santa sprite set + snow + glow             │
+│      room + measured Santa + light/focus match + painted occlusion          │
 │                            │                                                │
-│                            ├──► MediaRecorder ──► video file ──► download   │
-│                            └──► Share card canvas ──► PNG ──► download     │
+│                            ├──► Still / 9:16 canvas ──► PNG ──► download    │
+│                            └──► Postcard canvas ──► PNG ──► download        │
 │                                                                             │
 │  Everything above runs here. Nothing crosses the network boundary.          │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -428,13 +428,10 @@ Taking the best of the market, then adding what nobody has.
 ```
 
 **Technology notes**
-- `Canvas 2D` for composition; `OffscreenCanvas` + `WebCodecs` where available
-- `MediaRecorder` with `canvas.captureStream()` for capture; fall back to
-  `ffmpeg.wasm` for MP4
-- Santa sprite set: one sprite sheet, delivered as a static asset, ~200–400 KB
-- Snow, glow and sparkle: procedural, drawn per frame — **no assets, no cost**
-- Optional on-device face detection via a WASM COCO-SSD build, lazily loaded,
-  never a remote model
+- `Canvas 2D` for local composition and PNG export
+- Santa pose PNGs are static local assets; provenance and current 7.9 MB size
+  are unresolved launch blockers documented in `asset-provenance.md`
+- No detection model, encoder, third-party runtime or network dependency
 
 ---
 
@@ -446,9 +443,9 @@ The build is done when a user who has never seen it can:
 2. Open DevTools → Network, use the tool fully, and see **zero requests
    containing image data** (PR-12)
 3. Add a photo of a room with **no people** and complete the scene (FR-11)
-4. Place all three anchors purely by tapping, with detection disabled (FR-05)
-5. See a plan preview that matches the final result (FR-06)
-6. Export a video that plays, loops, and carries the AI badge (FR-15, PR-06)
+4. Place Santa and measure one visible object with the ruler (FR-05)
+5. See a live preview that matches the final result (FR-06)
+6. Export a PNG still that carries the AI badge (FR-15, PR-06)
 7. Export a 9:16 variant (FR-16)
 8. Hit the kill switch and have every trace of the photo gone (FR-19)
 9. Reload and find the photo is not back (FR-20)
@@ -484,23 +481,22 @@ The two columns nobody else can honestly tick are the ones the product leads on.
 
 | Phase | Scope | Value |
 |---|---|---|
-| **1 — Proof** | Photo → 3 anchors → Santa walks door-to-sofa, sits, exits. Snow + glow. Video export. | Proves U2 and U3, the core novelty |
-| **2 — Complete** | Table + cookie + milk, two modes, scene picker, share card, kill switch | The full described experience |
-| **3 — Differentiate** | Voice greeting, pass codes, house rules, face-free polish | U4–U7 |
+| **1 — Proof** | Photo → ruler measurement → static placement → PNG export | Proves U2 and U3, the core novelty |
+| **2 — Complete** | Photoreal pose set, light/focus matching, occlusion, postcards, kill switch | The full described experience |
+| **3 — Differentiate** | Additional poses and face-free/accessibility polish | Extends the core without changing its privacy model |
 | **4 — Prove** | Verify page, share assets, SEO | Makes U1 credible and drives traffic |
-| **5 — Commercialise** | Optional paid photorealistic mode (opt-in, disclosed) | Only after the free product proves demand |
+| **5 — Commercialise** | Only after asset rights, privacy review and hosting are resolved | No change to the zero-upload promise |
 
 ---
 
 ## 14. Open questions
 
-1. **Sprites vs. generated video** — is the 2.5D cartoon look acceptable as the
-   default, or is photorealism essential to the appeal? This changes Phase 1
-   scope materially. *Recommendation: ship 2.5D first; the fidelity can rise later
-   without changing the architecture.*
-2. **How long should the scene be?** 8–12 s covers the brief in one loop.
-3. **Do we need a real fireplace anchor?** It would improve composition if
-   present, but adds a required tap. *Recommendation: optional.*
+1. **Photoreal asset rights** — provenance and likeness consent must be cleared
+   before publication; repository presence is not permission.
+2. **Payload budget** — optimise the 7.9 MB pose set or revise the 3 MB target
+   explicitly.
+3. **Are more ruler references needed?** Add only objects with defensible
+   average heights.
 4. **Pass codes (U5) with zero server** — a code can only carry a URL fragment.
    Is a link-based pass acceptable, or is a short memorable code required? The
    latter needs a server, which costs the U1 guarantee. *Recommendation: link
@@ -516,8 +512,8 @@ The two columns nobody else can honestly tick are the ones the product leads on.
 | ID | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | **RISK-1** | **ICO enforcement** — a child-facing service with a DPIA requirement treated as non-compliant | Low | High | Complete the DPIA and the four positive Children's-code standards before launch (§3.3a). Get written ICO/adviser confirmation. |
-| **RISK-2** | **No transcoding on shared hosting** — `ffmpeg.wasm` needs `SharedArrayBuffer`, which needs COOP/COEP headers that shared hosting cannot set. Combined with a hostile codec matrix, the exported file may be WebM on Chrome/Firefox and MP4 on Safari | **High** | High | FR-30…FR-34. Test format availability at runtime. Offer a still share card when the target channel can't take the format (FR-43). **Consider a host that can set headers** — this is now a hosting selection criterion. |
-| **RISK-3** | **iOS recording produces a 0.1 s clip then freezes** | Medium | High | FR-34. Test on a physical iPhone pre-release. WebCodecs path (FR-32) avoids the realtime-capture path entirely. |
+| **RISK-2** | **PNG download/share behaviour differs on mobile browsers** | Medium | Medium | FR-30…FR-34. Test all three still outputs on physical iOS and Android devices. |
+| **RISK-3** | **A postcard or vertical export saves the wrong canvas state** | Low | High | FR-43 plus executable/static requirements gates and browser quality checks. |
 | **RISK-4** | **Sprite generation inconsistent** — a regenerated Santa set looks different to users | Medium | Medium | Generate once, commit to the repo, never regenerate without a version bump. U8 depends on it. |
 | **RISK-5** | **Time-boxed product** — a Christmas-only tool has ~8 weeks of demand a year | **High** | High | C3. This is a business decision, not a technical one, and it must be made before Phase 2. |
 | **RISK-6** | **A 108 MP phone photo silently fails to draw** | Medium | Medium | FR-35 downscale before compositing. |

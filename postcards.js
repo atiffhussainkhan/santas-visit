@@ -1,16 +1,17 @@
 /* Postcards — three shareable keepsakes built from the user's own room.
  *
  * The scene is the payload, so a postcard is not a filter with a border; each
- * one earns its share by giving the viewer something the video cannot:
+ * one earns its share by giving the viewer something the plain still cannot:
  *
  *   1. THE EVIDENCE  — the visit as a captured moment, no framing tricks, with
  *                      the honest-AI badge. The share people actually want.
  *   2. CERTIFICATE   — the fun keepsake. Names the visitor, the date, and what
  *                      Santa thought of the house. This is the one a parent
  *                      prints and the one a child keeps.
- *   3. ROUTE LOG     — Santa's walk across the room as a map, with the three
- *                      anchors the user placed. Nobody else can make this,
- *                      because nobody else has their anchors.
+ *   3. WHERE HE SAT  — where he was placed in the room, marked on the
+ *                      photograph, with the measurement the size came from.
+ *                      Nobody else can make this, because nobody else has
+ *                      your ruler.
  *
  * Drawn on canvas so they export as PNG with no server, no upload, and no
  * dependency on the character art — a photoreal Santa drops in unchanged.
@@ -78,7 +79,7 @@
   /* ---------------------------------------------------------------- 1. The
    * Evidence — the visit as a still, framed like a photograph, nothing faked. */
   function evidence(ctx, opts) {
-    const { w, h, room, santa, anchors, tint } = opts;
+    const { w, h, room, santa, place, tint } = opts;
     ctx.fillStyle = INK.paper; ctx.fillRect(0, 0, w, h);
     const m = w * 0.055, foot = h * 0.19;
     const px = m, py = m, pw = w - m * 2, ph = h - m - foot;
@@ -116,69 +117,121 @@
     const { w, h, room, santa, name, date, wish } = opts;
     ctx.fillStyle = INK.paper; ctx.fillRect(0, 0, w, h);
 
-    // Double border, like a certificate
-    const b = w * 0.045;
+    // Double border, like a certificate. Scaled off the SHORT side: off the
+    // long side, a wide letterbox card lost so much height to the border that
+    // the body copy had negative room left.
+    const b = Math.min(w, h) * 0.045;
     ctx.strokeStyle = INK.gold; ctx.lineWidth = w * 0.009;
     roundRect(ctx, b, b, w - b * 2, h - b * 2, w * 0.02); ctx.stroke();
     ctx.strokeStyle = INK.edge; ctx.lineWidth = w * 0.0025;
     roundRect(ctx, b * 1.5, b * 1.5, w - b * 3, h - b * 3, w * 0.014); ctx.stroke();
 
     // A strip of the room across the top — their actual house, in the frame
-    const sh = h * 0.30;
+    /* Lay this card out from a VERTICAL BUDGET, not from a scale factor.
+     *
+     * Two earlier attempts failed here. The original scaled every font from w
+     * and every advance from h, which on a 900x560 card let a 65px name advance
+     * 48px until the copy and the signature rule overprinted. The second used
+     * u = min(w, h*1.25), which is 700 for this card -- so the title alone
+     * landed at y=356 while the signature block started at 322. bodyRoom came
+     * out NEGATIVE and wrap() was handed a negative line height, stacking lines
+     * upward. Scaling a fixed recipe is what broke it both times.
+     *
+     * So: measure the space that actually exists, then give each element a
+     * share of it. Every advance is at least 1.2x its own font, and the body
+     * is handed a line height it can honour rather than one it must survive. */
+    const inner = h - b * 3;          // inside both borders
+    const photoH = inner * 0.16;
+
     ctx.save();
-    roundRect(ctx, b * 1.9, b * 1.9, w - b * 3.8, sh, w * 0.012); ctx.clip();
-    ctx.drawImage(room, b * 1.9, b * 1.9, w - b * 3.8, sh);
-    if (santa) santa(ctx, b * 1.9, b * 1.9, w - b * 3.8, sh);
+    roundRect(ctx, b * 1.9, b * 1.9, w - b * 3.8, photoH, w * 0.012); ctx.clip();
+    ctx.drawImage(room, b * 1.9, b * 1.9, w - b * 3.8, photoH);
+    if (santa) santa(ctx, b * 1.9, b * 1.9, w - b * 3.8, photoH);
     ctx.restore();
 
-    let y = b * 1.9 + sh + h * 0.075;
-    centerText(ctx, "CERTIFICATE OF GOOD BEHAVIOUR", w / 2, y, w * 0.052, INK.deep, 700);
-    y += h * 0.045;
-    centerText(ctx, "awarded to", w / 2, y, w * 0.030, INK.mute, 400);
-    y += h * 0.062;
+    // Reserve the signature block FIRST, so the body can never grow into it.
+    // Positioned from the TOP of the block: anchoring to h put "North Pole"
+    // below the inner border, where it ran off the bottom of the card.
+    const sigH = inner * 0.17;
+    const sigBottom = h - b * 2.3;
+    const sigTop = sigBottom - sigH;
+    const sy = sigTop + sigH * 0.42;
+
+    const titleSize  = inner * 0.070;
+    const awardSize  = inner * 0.038;
+    const nameSize   = inner * 0.095;
+    const bodySize   = inner * 0.046;
+
+    let y = b * 1.9 + photoH + inner * 0.045;
+
+    // Fit the title to the width that is actually there. Sized purely from
+    // height it overflowed a square card: at 400x400 the title measured ~395px
+    // inside a 346px border.
+    const titleMax = w - b * 4.2;
+    let titleFit = titleSize;
+    ctx.save();
+    ctx.font = "700 " + titleFit + "px " + FONT;
+    const tWidth = ctx.measureText("CERTIFICATE OF GOOD BEHAVIOUR").width;
+    if (tWidth > titleMax) titleFit = titleFit * (titleMax / tWidth);
+    ctx.restore();
+    centerText(ctx, "CERTIFICATE OF GOOD BEHAVIOUR", w / 2, y, titleFit, INK.deep, 700);
+    y += titleFit * 1.3;
+
+    centerText(ctx, "awarded to", w / 2, y, awardSize, INK.mute, 400);
+    y += awardSize * 1.7;
 
     const who = (name || "a very good child").slice(0, 26);
     ctx.save();
-    ctx.fillStyle = INK.red; ctx.font = "italic 700 " + (w * 0.072) + "px " + FONT;
+    ctx.fillStyle = INK.red; ctx.font = "italic 700 " + nameSize + "px " + FONT;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(who, w / 2, y);
     const tw = ctx.measureText(who).width;
-    ctx.strokeStyle = INK.gold; ctx.lineWidth = w * 0.0035;
+    ctx.strokeStyle = INK.gold; ctx.lineWidth = Math.max(1, w * 0.0035);
     ctx.beginPath();
-    ctx.moveTo(w / 2 - tw / 2 - w * 0.02, y + w * 0.042);
-    ctx.lineTo(w / 2 + tw / 2 + w * 0.02, y + w * 0.042);
+    ctx.moveTo(w / 2 - tw / 2 - nameSize * 0.3, y + nameSize * 0.62);
+    ctx.lineTo(w / 2 + tw / 2 + nameSize * 0.3, y + nameSize * 0.62);
     ctx.stroke();
     ctx.restore();
-    y += h * 0.085;
+    y += nameSize * 1.05;
 
-    y = wrap(ctx, wish || "for a very good house indeed — Santa approved.",
-             w / 2, y, w * 0.66, h * 0.045, w * 0.036, INK.deep);
-    y += h * 0.02;
+    // Whatever is left between the name rule and the signature, and nothing
+    // more. Named bodyRoom, not `room`: `room` is already destructured from
+    // opts above, and redeclaring it in the same scope is a SyntaxError that
+    // stops this entire file from parsing. A brace-counting gate called it
+    // fine; a browser kept serving a cached copy so the screen looked correct.
+    const bodyRoom = Math.max(bodySize * 1.2, sigTop - y);
+    wrap(ctx, wish || "for a very good house indeed \u2014 Santa approved.",
+         w / 2, y, w * 0.66, bodyRoom / 2, bodySize, INK.deep);
 
-    // Signature block
-    const sy = h - b * 3.4;
-    ctx.strokeStyle = INK.edge; ctx.lineWidth = w * 0.002;
+    ctx.strokeStyle = INK.edge; ctx.lineWidth = Math.max(1, w * 0.002);
     ctx.beginPath();
     ctx.moveTo(w * 0.18, sy); ctx.lineTo(w * 0.44, sy);
     ctx.moveTo(w * 0.56, sy); ctx.lineTo(w * 0.82, sy);
     ctx.stroke();
-    centerText(ctx, "Santa Claus", w * 0.31, sy + h * 0.035, w * 0.030, INK.deep, 500);
-    centerText(ctx, date || "", w * 0.69, sy + h * 0.035, w * 0.030, INK.mute, 400);
-    centerText(ctx, "North Pole", w * 0.31, sy + h * 0.072, w * 0.024, INK.mute, 400);
-    badge(ctx, b * 1.5, h - b * 2.6, w * 0.0068);
+    centerText(ctx, "Santa Claus", w * 0.31, sy + sigH * 0.26, bodySize, INK.deep, 500);
+    centerText(ctx, date || "", w * 0.69, sy + sigH * 0.26, bodySize, INK.mute, 400);
+    centerText(ctx, "North Pole", w * 0.31, sy + sigH * 0.66, bodySize * 0.85, INK.mute, 400);
+    // Scaled off the SHORT side and clamped inside the border: at w=2000,h=400
+    // the old w-based radius put it at y~405 on a 400px card, i.e. off the edge.
+    const badgeR = Math.min(w, h) * 0.0068;
+    badge(ctx, b * 1.5, Math.min(h - b * 1.4, h - badgeR * 1.2), badgeR);
   }
 
-  /* ---------------------------------------------------------------- 3. The
-   * Route Log — the map only this product can make, because only this product
-   * has the user's own anchors. */
+  /* ---------------------------------------------------------------- 3. Where
+   * Santa sat — the one thing this product knows that nobody else can: the
+   * exact spot in YOUR room that you chose.
+   *
+   * This was a "Route Log" drawing a dashed path through three anchors. There
+   * is no route any more, so the card used to show three coincident dots, three
+   * icons stacked on one point, and copy claiming a journey that never
+   * happened. It now shows the single mark the user placed, and says so. */
   function routeLog(ctx, opts) {
-    const { w, h, room, santa, anchors, tint } = opts;
+    const { w, h, room, santa, place, tint } = opts;
     ctx.fillStyle = INK.paper; ctx.fillRect(0, 0, w, h);
     const m = w * 0.05;
     const ph = h * 0.56;
     const px = m, py = m * 1.2, pw = w - m * 2;
 
-    // The room, dimmed, as the map
     ctx.save();
     roundRect(ctx, px, py, pw, ph, w * 0.014); ctx.clip();
     ctx.globalAlpha = 0.82;
@@ -186,48 +239,36 @@
     if (santa) santa(ctx, px, py, pw, ph);
     ctx.globalAlpha = 1;
 
-    // The walk path between the three anchors, dashed like a route
-    if (anchors) {
-      const pts = [anchors.door, anchors.sofa, anchors.table, anchors.sofa, anchors.door];
-      const map = (p) => ({ x: px + (p.x / (opts.roomW || w)) * pw, y: py + (p.y / (opts.roomH || h)) * ph });
-      ctx.save();
-      ctx.strokeStyle = "rgba(193,39,45,.85)";
-      ctx.lineWidth = w * 0.006; ctx.setLineDash([w * 0.022, w * 0.016]); ctx.lineCap = "round";
-      ctx.beginPath();
-      pts.forEach(function (p, i) { const q = map(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const marks = [["door", "🚪", "Door"], ["sofa", "🛋️", "Sofa"], ["table", "🍪", "Table"]];
-      marks.forEach(function (m2) {
-        const a = anchors[m2[0]]; if (!a) return;
-        const q = map(a);
-        ctx.beginPath(); ctx.arc(q.x, q.y, w * 0.030, 0, 7);
-        ctx.fillStyle = "rgba(253,251,244,.95)"; ctx.fill();
-        ctx.strokeStyle = INK.red; ctx.lineWidth = w * 0.005; ctx.stroke();
-        centerText(ctx, m2[1], q.x, q.y + w * 0.002, w * 0.028, INK.deep, 400);
-        centerText(ctx, m2[2], q.x, q.y + w * 0.056, w * 0.024, INK.mute, 600);
-      });
-      ctx.restore();
+    if (place) {
+      const q = {
+        x: px + (place.x / (opts.roomW || w)) * pw,
+        y: py + (place.y / (opts.roomH || h)) * ph,
+      };
+      // A single ring on the spot, not a path.
+      ctx.beginPath(); ctx.arc(q.x, q.y, w * 0.042, 0, 7);
+      ctx.strokeStyle = INK.red; ctx.lineWidth = w * 0.007; ctx.stroke();
+      ctx.beginPath(); ctx.arc(q.x, q.y, w * 0.030, 0, 7);
+      ctx.fillStyle = "rgba(253,251,244,.95)"; ctx.fill();
+      ctx.strokeStyle = INK.red; ctx.lineWidth = w * 0.005; ctx.stroke();
+      centerText(ctx, "\u{1F385}", q.x, q.y + w * 0.004, w * 0.030, INK.deep, 400);
+      centerText(ctx, "right here", q.x, q.y + w * 0.068, w * 0.024, INK.mute, 600);
     }
     ctx.restore();
     ctx.strokeStyle = INK.edge; ctx.lineWidth = Math.max(1, w * 0.002);
     roundRect(ctx, px, py, pw, ph, w * 0.014); ctx.stroke();
 
     let y = py + ph + h * 0.075;
-    centerText(ctx, "SANTA'S ROUTE LOG", w / 2, y, w * 0.050, INK.deep, 700);
+    centerText(ctx, "WHERE HE SAT", w / 2, y, w * 0.050, INK.deep, 700);
     y += h * 0.048;
-    centerText(ctx, "One door · one sofa · one cookie · one glass of milk", w / 2, y, w * 0.028, INK.mute, 400);
-    y += h * 0.038;
-    centerText(ctx, "Entered by the door, sat where you sit, left the way he came.",
-               w / 2, y, w * 0.026, INK.mute, 400);
+    centerText(ctx, "You chose the spot, so this is the only one that is yours.",
+               w / 2, y, w * 0.028, INK.mute, 400);
     badge(ctx, m, h - m * 1.5, w * 0.0072);
   }
 
   const TEMPLATES = {
     evidence: { label: "The Evidence", draw: evidence },
     certificate: { label: "Certificate of Good Behaviour", draw: certificate },
-    route: { label: "Santa's Route Log", draw: routeLog },
+    route: { label: "Where He Sat", draw: routeLog },
   };
 
   function render(ctx, key, opts) {

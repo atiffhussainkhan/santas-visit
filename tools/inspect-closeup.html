@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>closeup</title>
+<style>body{background:#0d0f16;color:#dfe6f2;font:13px system-ui;margin:14px}
+h2{font-size:13px;color:#ffd24c;margin:14px 0 5px}
+canvas{border:1px solid #333;display:block;margin-bottom:6px}</style></head>
+<body><div id="o"></div><div id="r" style="color:#ffd24c;margin-top:10px"></div>
+<script src="../santa.js"></script><script src="../santa-photo.js"></script>
+<script src="../engine.js"></script>
+<script>
+function lab(t){const h=document.createElement("h2");h.textContent=t;o.appendChild(h);}
+function zoom(src,cx,cy,cw,ch,z){const c=document.createElement("canvas");c.width=cw*z;c.height=ch*z;
+  const g=c.getContext("2d");g.imageSmoothingEnabled=true;
+  g.drawImage(src,cx,cy,cw,ch,0,0,cw*z,ch*z);o.appendChild(c);return c;}
+(async function(){
+ const img=new Image(); img.src="test-room.jpg"; await img.decode();
+ const s=Math.min(1,1600/img.width), W=Math.round(img.width*s), H=Math.round(img.height*s);
+ await PhotorealSanta.load(); const C=PhotorealSanta.ready?PhotorealSanta:Santa;
+ const stick={x1:W*0.055,y1:H*0.71,x2:W*0.055,y2:H*0.71-1054*s};
+ const place={x:W*0.34,y:H*0.78};
+ const cv=document.createElement("canvas");cv.width=W;cv.height=H;
+ const ctx=cv.getContext("2d");
+ Scene.renderFrame(ctx,C,{w:W,h:H,photo:img,place,stick,refCm:200,refKey:"door",
+   pose:"stand",matchLight:true,light:{x:-0.55,y:0.35},tint:{r:1,g:1,b:1}},0);
+ const r=Scene.solveStatic(place,stick,200,W,H,"stand","door",false);
+ const top=place.y-r.size, wpx=r.size*0.52;
+ const X=Math.round(place.x-wpx/2);
+ // raw room at the same spot, for a true A/B at identical zoom
+ const raw=document.createElement("canvas");raw.width=W;raw.height=H;
+ raw.getContext("2d").drawImage(img,0,0,W,H);
+
+ lab("1. Santa's head and shoulders — 3x");
+ zoom(cv,X,Math.round(top),Math.round(wpx),Math.round(r.size*0.34),3);
+ lab("2. The room exactly beside him, same 3x — the comparison that matters");
+ zoom(raw,X+Math.round(wpx),Math.round(top),Math.round(wpx),Math.round(r.size*0.34),3);
+ lab("3. His boots and the floor contact — 4x");
+ zoom(cv,X,Math.round(place.y-r.size*0.22),Math.round(wpx),Math.round(r.size*0.24),4);
+ lab("4. The floor right next to those boots — 4x");
+ zoom(raw,X+Math.round(wpx),Math.round(place.y-r.size*0.22),Math.round(wpx),Math.round(r.size*0.24),4);
+ document.getElementById("r").textContent="Santa "+Math.round(r.size)+"px = "+(r.size/H*100).toFixed(0)+"% of frame · perspective x"+r.perspective.toFixed(2);
+ window.__ready=true;
+})();
+</script></body></html>

@@ -35,9 +35,26 @@
     // composer can scale him by height and place his feet on the floor line.
     sourceHeight: 0,   // px tall in the source image
     anchorRatio: 1,    // fraction of sourceHeight from the TOP to the feet
+    bodyPixels: {},    // pose -> measured central hat/head-to-boot alpha span
+    poseScale: {},     // pose -> sourceHeight/bodyPixels correction
   };
 
+  /* Resolve the sprite folder against THIS SCRIPT, not against the page.
+   *
+   * `new URL("assets/santa/", location.href)` is page-relative, so it resolves
+   * correctly only while the page happens to sit next to the assets folder. The
+   * moment it does not — a subdirectory, a harness under tools/, a CDN path —
+   * every sprite 404s and load() resolves with loaded=false, and the app
+   * silently falls back to the cartoon vector Santa. That failure looks like
+   * "the art is a cartoon" rather than "the art failed to load", which is
+   * exactly how it was misdiagnosed twice.
+   *
+   * Resolving against this file's own URL makes it correct from any location. */
+  const SELF_URL = (typeof document !== "undefined" && document.currentScript)
+    ? document.currentScript.src : null;
+
   function base() {
+    if (SELF_URL) return new URL("assets/santa/", SELF_URL).href;
     return new URL("assets/santa/", location.href).href;
   }
 
@@ -48,8 +65,18 @@
     let done = 0;
     state.missing = [];
     state.images = {};
+    state.loaded = false;
+    state.sourceHeight = 0;
+    state.bodyPixels = {};
+    for (const k in state.poseScale) delete state.poseScale[k];
 
     return new Promise((resolve) => {
+      const finish = () => {
+        if (done !== names.length) return;
+        measurePoseScales();
+        state.loaded = state.missing.length === 0;
+        resolve(report());
+      };
       names.forEach((pose) => {
         const img = new Image();
         img.onload = () => {
@@ -63,23 +90,66 @@
           state.images[pose] = img;
           done++;
           if (onProgress) onProgress(done / names.length, pose);
-          if (done === names.length) {
-            state.loaded = true;
-            resolve(report());
-          }
+          finish();
         };
         img.onerror = () => {
           state.missing.push(pose);
           done++;
           if (onProgress) onProgress(done / names.length, pose);
-          if (done === names.length) {
-            state.loaded = state.missing.length === 0;
-            resolve(report());
-          }
+          finish();
         };
         img.src = base() + pose + ".png";
       });
     });
+  }
+
+  /* Pose scale is measured from the delivered alpha, not from the equal 1408px
+   * FILE frames. Method (also reproducible offline with check_art.py): alpha
+   * threshold >8; boot row = last alpha anywhere; hat/head row = first alpha
+   * in the central 30–70% of frame width. That corridor deliberately excludes
+   * wave's raised hand and cheer's two raised hands. The resulting
+   * head-to-boot pixel span is exposed by report(). A scale of H/span makes
+   * that measured body span, rather than transparent margin or raised hands,
+   * the physical height engine.js asks for. No number is guessed or inferred
+   * from the common frame height.
+   *
+   * Source frames, checked from the actual PNG IHDRs:
+   * stand 628×1408; walk 609×1408; walk2 634×1408; sit 731×1408;
+   * reach 617×1408; drink 675×1408; eat 616×1408; wave 742×1408;
+   * cheer 928×1408. `sit` is a genuinely seated person, not a squat, and is
+   * therefore also declared in seatedPoses below. */
+  function measurePoseScales() {
+    const c = document.createElement("canvas");
+    const g = c.getContext("2d", { willReadFrequently: true });
+    for (const pose of REQUIRED) {
+      const img = state.images[pose];
+      if (!img) continue;
+      const w = img.naturalWidth, h = img.naturalHeight;
+      c.width = w; c.height = h;
+      g.clearRect(0, 0, w, h);
+      g.drawImage(img, 0, 0);
+      let top = h, bottom = -1;
+      try {
+        const d = g.getImageData(0, 0, w, h).data;
+        const x0 = Math.floor(w * 0.30), x1 = Math.ceil(w * 0.70);
+        for (let y = 0; y < h; y++) {
+          let row = false, central = false;
+          for (let x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] <= 8) continue;
+            row = true;
+            if (x >= x0 && x <= x1) central = true;
+          }
+          if (central && top === h) top = y;
+          if (row) bottom = y;
+        }
+      } catch (e) {
+        top = 0; bottom = h - 1;
+      }
+      const span = bottom >= top ? bottom - top + 1 : h;
+      state.bodyPixels[pose] = span;
+      state.poseScale[pose] = h / span;
+    }
+    c.width = c.height = 1;
   }
 
   function report() {
@@ -89,6 +159,13 @@
       present: REQUIRED.filter((p) => state.images[p]),
       missing: state.missing.slice(),
       sourceHeight: state.sourceHeight,
+      bodyPixels: Object.assign({}, state.bodyPixels),
+      poseScale: Object.assign({}, state.poseScale),
+      /* Why the photographs did not load. A bare `missing` array reads as
+       * "some poses are absent"; the URL actually asked for is what tells you
+       * the folder moved or a base path is wrong. */
+      base: base(),
+      failed: state.missing.length > 0,
     };
   }
 
@@ -144,7 +221,26 @@
   }
 
   global.PhotorealSanta = {
+    cacheKey: "photoreal-santa-v1",
     REQUIRED, load, report, build, toCanvas, toSVG,
+    /* `sit.png` has bent thighs and shins and is genuinely seated, even though
+     * the chair itself is transparent. The other delivered poses stand. */
+    seatedPoses: { sit: 1 },
+    /* PNG sprites put their origin at the frame bottom; none paints below it. */
+    feetOffset: {
+      stand: 0, walk: 0, walk2: 0, sit: 0, reach: 0,
+      drink: 0, eat: 0, wave: 0, cheer: 0,
+    },
+    poseScale: state.poseScale,
     get ready() { return state.loaded; },
+    /* engine.js computes scale as p.size / Santa.height, so this module has to
+     * expose the same property as the vector character or the scale resolves to
+     * NaN and nothing draws at all. The source sprite is feet-anchored, so its
+     * full pixel height IS the character height — no unit conversion needed. */
+    get height() {
+      const h = state.sourceHeight;
+      if (!h) throw new Error("PhotorealSanta.height read before load()");
+      return h;
+    },
   };
 })(typeof window !== "undefined" ? window : globalThis);

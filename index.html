@@ -19,8 +19,13 @@
           padding:6px 14px; font-size:.85rem; color:var(--mute); }
   .step.on { color:#1a1400; background:var(--accent); border-color:var(--accent); font-weight:600; }
   .stage { position:relative; background:#0b1020; border:1px solid var(--line);
-           border-radius:16px; overflow:hidden; }
+           border-radius:16px; overflow:hidden; touch-action:none; }
   canvas { display:block; width:100%; height:auto; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+              margin:10px 0; font-size:14px; color:#dfe6f2; }
+  .controls select { background:#1b2434; color:#dfe6f2; border:1px solid #33415c;
+                     border-radius:8px; padding:6px 8px; font-size:14px; }
+  #readout { color:#ffd24c; font-weight:600; }
   .pin { position:absolute; transform:translate(-50%,-50%); cursor:grab;
          font-size:26px; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); user-select:none; }
   .pin.drag { cursor:grabbing; }
@@ -37,6 +42,10 @@
   .note b { color:var(--text); }
   .privacy-box { margin-top:34px; background:var(--panel); border:1px solid var(--line);
                  border-radius:16px; padding:22px 24px; }
+  /* The user-agent rule for [hidden] is `display:none`, which any later
+     `display:flex` silently beats. The brush controls are laid out with flex
+     and so would stay on screen forever when toggled off. */
+  [hidden] { display:none !important; }
   .privacy-box h2 { margin:0 0 12px; font-size:1.05rem; }
   .privacy-box h3 { margin:22px 0 6px; font-size:.95rem; }
   .privacy-box p, .privacy-box li { color:var(--mute); font-size:.9rem; }
@@ -60,34 +69,67 @@
 <div class="wrap">
   <div class="steps" id="steps">
     <div class="step on" data-s="0">1 · Your photo</div>
-    <div class="step" data-s="1">2 · Place the spots</div>
-    <div class="step" data-s="2">3 · Watch</div>
+    <div class="step" data-s="1">2 · Place Santa</div>
+    <div class="step" data-s="2">3 · Save</div>
   </div>
 
   <div class="stage" id="stage">
     <canvas id="cv" width="900" height="560"></canvas>
-    <div class="pin" id="pin-door"   style="left:0;top:0">🚪<span>Door</span></div>
-    <div class="pin" id="pin-sofa"   style="left:0;top:0">🛋️<span>Sofa</span></div>
-    <div class="pin" id="pin-table"  style="left:0;top:0">🍪<span>Table</span></div>
+    <svg id="stickline" viewBox="0 0 900 560" preserveAspectRatio="none"
+         style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+      <line id="stick" x1="0" y1="0" x2="0" y2="0" stroke="#ffd24c" stroke-width="3"
+            stroke-dasharray="8 6" opacity=".95"/>
+    </svg>
+    <div class="pin" id="pin-base" style="left:0;top:0">📏<span>Base</span></div>
+    <div class="pin" id="pin-top"  style="left:0;top:0">📐<span>Top</span></div>
+    <div class="pin" id="pin-santa" style="left:0;top:0">🎅<span>Santa</span></div>
   </div>
 
   <div class="bar">
     <button class="ghost" id="choose">Choose a photo</button>
     <input type="file" id="file" accept="image/*" hidden>
     <button class="ghost" id="sample">Use a sample room</button>
-    <button id="play" disabled>▶ Play the visit</button>
+    
     <button class="ghost" id="cards" disabled>📮 Postcards</button>
-    <button id="save" disabled>⬇️ Save the video</button>
+    <button id="save" disabled>⬇️ Save the picture</button>
     <button class="ghost" id="vertical" disabled>📱 Save 9:16</button>
-    <button class="ghost" id="caps" type="button">What can this device do?</button>
+    <button class="ghost" id="caps" type="button">What did you do with my photo?</button>
     <button class="ghost" id="forget" disabled>🧹 Forget my photo</button>
   </div>
 
+  <div class="controls">
+    <label>Santa is
+      <select id="pose">
+        <option value="stand" selected>standing in the room</option>
+        <option value="sit">sitting down — paint a chair behind him</option>
+        <option value="drink">with a glass of milk</option>
+        <option value="eat">eating a cookie</option>
+        <option value="cheer">cheering</option>
+        <option value="wave">waving</option>
+      </select>
+    </label>
+    <label>I measured
+      <select id="ref">
+        <option value="0">nothing yet — using a default size</option>
+        <option value="door">a doorway (200&nbsp;cm)</option>
+        <option value="table">a coffee table (45&nbsp;cm)</option>
+        <option value="seat">a sofa seat (45&nbsp;cm)</option>
+        <option value="chair">a dining chair (90&nbsp;cm)</option>
+        <option value="person">an adult (170&nbsp;cm)</option>
+        <option value="fridge">a fridge (180&nbsp;cm)</option>
+        <option value="lamp">a floor lamp (150&nbsp;cm)</option>
+      </select>
+    </label>
+    <output id="readout"></output>
+  </div>
+
   <div class="note">
-    <b>Where will Santa sit?</b> Drag the three markers onto your own door, sofa and
-    table. That is the whole trick — Santa is placed in <i>your</i> room, scaled to
-    it, and his walk between them is derived from the points you set. Nobody else
-    does this; every other app just changes your face.
+    <b>Put Santa where you want him.</b> This is a photograph, not a film — he
+    does not walk anywhere, you place him. Drag <b>🎅</b> to where he should sit,
+    then stretch the yellow ruler <b>📏&nbsp;→&nbsp;📐</b> up something real in your
+    own photo and say what it is above. His size is then measured from your
+    furniture instead of guessed, so he sits in the room rather than floating in
+    it.
   </div>
 
   <p id="note" style="color:#ffd24c;font-weight:600;margin:10px 0 0"></p>
@@ -134,27 +176,83 @@
     </p>
   </section>
 
-  <label class="privacy">
+  <div class="note" id="artwarn" style="display:none;color:#ffd24c;border:1px solid #6b5a1f;border-radius:10px;padding:10px 12px;margin:12px 0"></div>
+
+<label class="privacy">
     <input type="checkbox" id="light" checked>
     Match Santa to the room's light (shadow direction and colour). This is what
     stops a composited character looking like a sticker.
   </label>
+
+  <div class="occlude">
+    <label class="privacy">
+      <input type="checkbox" id="occlude">
+      Hide him behind the furniture
+    </label>
+    <p class="fine occlude-help" id="occlude-help">
+      Nothing here can tell a sofa arm from a cushion in a photograph, so you
+      paint it. Turn this on and brush over anything that stands between Santa
+      and the camera &mdash; the table edge, a chair back, a cushion &mdash; and
+      the real pixels are laid back over him. It is the single thing that stops
+      him looking stuck on top of your furniture.
+    </p>
+    <label class="privacy occlude-size" id="occlude-size-row" hidden>
+      Brush size
+      <input type="range" id="occlude-size" min="8" max="160" value="48">
+    </label>
+    <button class="ghost" id="occlude-erase" hidden>Erase</button>
+    <button class="ghost" id="occlude-undo" hidden>Undo stroke</button>
+    <button class="ghost" id="occlude-clear" hidden>Clear all</button>
+  </div>
 </div>
 
 <script src="santa.js"></script>
+<script src="santa-photo.js"></script>
 <script src="engine.js"></script>
 <script src="postcards.js"></script>
 <script src="export.js"></script>
 <script>
 (function () {
   const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+
+  /* Which character to draw. The engine only asks for build(pose)/toCanvas, so
+   * the vector Santa and the photographed one are interchangeable here. Photoreal
+   * art is used only when all nine poses actually loaded — a partial set would
+   * silently fall back to the wrong pose mid-walk, which reads as a glitch. */
+  let Character = Santa;
+  PhotorealSanta.load().then(function (r) {
+    if (r.loaded) {
+      Character = PhotorealSanta;
+      // Repaint: the first frame was drawn with the vector character while the
+      // photographed poses were still downloading, and nothing would have shown
+      // the swap until the user happened to drag something.
+      draw(0);
+      updateReadout();
+      window.dispatchEvent(new CustomEvent("characterready", { detail: r }));
+    } else {
+      // Say so, loudly. Falling back to the cartoon without a word is how a
+      // broken sprite path got mistaken for "the art is a cartoon" — the user
+      // saw a vector Santa and concluded the photoreal set had been removed,
+      // when in fact all nine PNGs were 404ing.
+      const warn = document.getElementById("artwarn");
+      if (warn) {
+        warn.style.display = "";
+        warn.textContent = "Photographic Santa could not be loaded from " + r.base +
+          " (" + r.missing.length + " of 9 poses missing), so this is the " +
+          "fallback cartoon instead. The files are not missing from the project " +
+          "— the page is looking in the wrong folder.";
+      }
+    }
+  });
   const stage = document.getElementById("stage");
+  // A still picture, so there is one place and one size and no route between
+  // them. `place` is where Santa sits; `stick` is the ruler the user stretched
+  // against something real; `refCm` is that object's height in centimetres.
   const pins = {
-    door: document.getElementById("pin-door"),
-    sofa: document.getElementById("pin-sofa"),
-    table: document.getElementById("pin-table"),
+    base:  document.getElementById("pin-base"),
+    top:   document.getElementById("pin-top"),
+    santa: document.getElementById("pin-santa"),
   };
-  const playBtn = document.getElementById("play");
   const wipeBtn = document.getElementById("forget");
   // Hoisted with the other lookups: reset() references these, and keeping them
   // below their first use would leave a temporal-dead-zone trap for whoever
@@ -163,33 +261,258 @@
   const vertBtn = document.getElementById("vertical");
   const capsBtn = document.getElementById("caps");
 
-  let photo = null, anchors = null, phase = 0, t0 = 0, raf = 0;
+  let photo = null, phase = 0, t0 = 0, raf = 0;
+  const state = {
+    place: null,      // {x,y} where Santa sits
+    stick: null,      // {x1,y1,x2,y2} the ruler the user stretched
+    refCm: 0,         // what the ruler was measured against
+    pose: 'stand',      // which still pose to draw
+    refKey: null,     // which reference object the ruler was stretched against
+    matchLight: true, // grade + contact shadow on/off
+    occlude: false,   // painting things that stand in front of Santa
+    occ: null,        // that mask, at canvas size
+    occDirty: false,  // this history state may contain painted mask pixels
+    occErase: false,  // brush is erasing rather than painting
+  };
+  // History is geometry, not 1600x1600 RGBA snapshots. Ten ImageData entries
+  // consumed ~98 MiB and forced a synchronous 10 MiB readback per stroke.
+  const occStrokes = [];
+  let activeStroke = null;
+  const stickLine = document.getElementById('stick');
+  const stickSvg  = document.getElementById('stickline');
+
+  /* ---- occlusion: put the room back in front of him -------------------
+   *
+   * Santa is otherwise painted over every arm, cushion and table edge in the
+   * room, and that is the loudest remaining "this is a composite" signal.
+   * There is no honest way to work it out from an arbitrary photo without a
+   * depth model, so the user brushes the occluding shapes and the original
+   * pixels are laid back through that mask. Exact edges, no guessing. */
+  const occBox   = document.getElementById("occlude");
+  const occHelp  = document.getElementById("occlude-help");
+  const occSize  = document.getElementById("occlude-size");
+  const occSizeRow = document.getElementById("occlude-size-row");
+  const occClear = document.getElementById("occlude-clear");
+  const occErase = document.getElementById("occlude-erase");
+  const occUndoBtn = document.getElementById("occlude-undo");
+  let occCtx = null;
+
+  function ensureMask() {
+    if (!state.occ || state.occ.width !== cv.width || state.occ.height !== cv.height) {
+      state.occ = Scene.newOcclusionMask(cv.width, cv.height);
+      occCtx = state.occ.getContext("2d");
+      occStrokes.length = 0;
+      activeStroke = null;
+      state.occDirty = false;
+    }
+    return state.occ;
+  }
+  /* A flag, not a scan. The previous version sampled every 97th alpha byte to
+   * decide whether anything had been painted, which can miss a small brush
+   * stroke entirely — and then silently disables occlusion for that render. */
+  function occPainted() { return !!(state.occlude && state.occDirty); }
+  function showOccludeUI() {
+    const on = state.occlude;
+    occHelp.style.display = on ? "" : "none";
+    occSizeRow.hidden = !on;
+    occErase.hidden = !on;
+    occUndoBtn.hidden = !on;
+    occClear.hidden = !on;
+    cv.style.cursor = on ? "crosshair" : "";
+    occErase.textContent = state.occErase ? "Erasing" : "Erase";
+    occUndoBtn.disabled = occStrokes.length === 0;
+    occClear.disabled = !state.occDirty;
+  }
+
+  // Painting happens on the stage, in CANVAS coordinates. The pins are
+  // separate absolutely-positioned elements, so this cannot steal a drag.
+  //
+  // Repaints are coalesced through requestAnimationFrame. A pointermove can
+  // fire far more often than the screen refreshes, and every repaint here does
+  // a full getImageData/putImageData grade plus a depth-of-field measure on
+  // roughly a million pixels. Without coalescing a drag queues work faster than
+  // it can be retired and the input lags behind the cursor.
+  let painting = false, paintPointer = null, lastPt = null, occFrame = 0;
+  function requestPaint() {
+    if (occFrame) return;
+    occFrame = requestAnimationFrame(function () {
+      occFrame = 0;
+      if (photo) draw(0);
+    });
+  }
+  function toCanvas(e) {
+    // The CANVAS rect, not the stage's. The stage has a border, so using its
+    // box shifted every painted point by the border width — a few CSS pixels,
+    // which lands several canvas pixels away from the furniture edge the user
+    // was tracing and leaves a visible seam.
+    const r = cv.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(cv.width, (e.clientX - r.left) / r.width * cv.width)),
+      y: Math.max(0, Math.min(cv.height, (e.clientY - r.top) / r.height * cv.height)),
+    };
+  }
+  function renderStroke(stroke) {
+    if (stroke.clear) {
+      occCtx.clearRect(0, 0, state.occ.width, state.occ.height);
+      return;
+    }
+    if (!stroke.points.length) return;
+    const rad = stroke.size / 2;
+    occCtx.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
+    occCtx.strokeStyle = "#fff";
+    occCtx.fillStyle = "#fff";
+    occCtx.lineWidth = stroke.size;
+    occCtx.lineCap = "round";
+    occCtx.lineJoin = "round";
+    occCtx.beginPath();
+    if (stroke.points.length === 1) {
+      occCtx.arc(stroke.points[0].x, stroke.points[0].y, rad, 0, Math.PI * 2);
+      occCtx.fill();
+    } else {
+      occCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        occCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      }
+      occCtx.stroke();
+    }
+    occCtx.globalCompositeOperation = "source-over";
+  }
+  function rebuildOcclusion() {
+    ensureMask();
+    occCtx.clearRect(0, 0, state.occ.width, state.occ.height);
+    for (const stroke of occStrokes) renderStroke(stroke);
+    state.occDirty = occStrokes.length
+      ? occStrokes[occStrokes.length - 1].nonEmptyAfter
+      : false;
+    showOccludeUI();
+  }
+  function paintTo(pt) {
+    ensureMask();
+    if (!activeStroke) return;
+    const rad = activeStroke.size / 2;
+    activeStroke.points.push(pt);
+    occCtx.globalCompositeOperation = activeStroke.erase ? "destination-out" : "source-over";
+    occCtx.strokeStyle = "#fff";
+    occCtx.fillStyle = "#fff";
+    occCtx.lineWidth = activeStroke.size;
+    occCtx.lineCap = "round";
+    occCtx.lineJoin = "round";
+    occCtx.beginPath();
+    if (lastPt) { occCtx.moveTo(lastPt.x, lastPt.y); occCtx.lineTo(pt.x, pt.y); occCtx.stroke(); }
+    else { occCtx.arc(pt.x, pt.y, rad, 0, Math.PI * 2); occCtx.fill(); }
+    occCtx.globalCompositeOperation = "source-over";
+    lastPt = pt;
+    // Painting proves content exists. Erasing can only reduce it, so retain
+    // the prior state conservatively; this can apply an empty mask harmlessly
+    // but can never hide a still-non-empty mask after undo.
+    if (!activeStroke.erase) activeStroke.nonEmptyAfter = true;
+    state.occDirty = activeStroke.nonEmptyAfter;
+    showOccludeUI();
+    requestPaint();
+  }
+  stage.addEventListener("pointerdown", function (e) {
+    if (!state.occlude || !photo) return;
+    if (painting) return; // one stroke owns the mask until its pointer ends
+    // Only the bare stage/canvas starts a stroke. The drag pins live inside
+    // the stage and their pointer events bubble, so without this, dragging
+    // Santa or the ruler also painted the mask.
+    if (e.target !== stage && e.target !== cv) return;
+    e.preventDefault();
+    ensureMask();
+    activeStroke = {
+      points: [],
+      erase: state.occErase,
+      size: +occSize.value,
+      nonEmptyAfter: state.occDirty,
+    };
+    occStrokes.push(activeStroke);
+    paintPointer = e.pointerId;
+    stage.setPointerCapture && stage.setPointerCapture(e.pointerId);
+    painting = true; lastPt = null;
+    paintTo(toCanvas(e));
+  });
+  stage.addEventListener("pointermove", function (e) {
+    if (!painting || e.pointerId !== paintPointer) return;
+    paintTo(toCanvas(e));
+  });
+  const stopPaint = function (e) {
+    if (e && paintPointer !== null && e.pointerId !== paintPointer) return;
+    painting = false; lastPt = null;
+    // Erase strokes conservatively retain the preceding non-empty bit. A
+    // completely erased mask may therefore be applied once, which is harmless;
+    // a real remaining mask is never silently disabled. Clear is the explicit
+    // operation that records a definitely empty state.
+    activeStroke = null;
+    if (paintPointer !== null && stage.hasPointerCapture &&
+        stage.hasPointerCapture(paintPointer)) {
+      stage.releasePointerCapture(paintPointer);
+    }
+    paintPointer = null;
+    showOccludeUI();
+    requestPaint();
+  };
+  stage.addEventListener("pointerup", stopPaint);
+  stage.addEventListener("pointercancel", stopPaint);
+  stage.addEventListener("pointerleave", stopPaint);
+
+  occBox.addEventListener("change", function () {
+    state.occlude = occBox.checked;
+    if (state.occlude) ensureMask();
+    showOccludeUI();
+    draw(0);
+  });
+  occClear.addEventListener("click", function () {
+    ensureMask();
+    occStrokes.push({ clear: true, points: [], nonEmptyAfter: false });
+    occCtx.clearRect(0, 0, state.occ.width, state.occ.height);
+    state.occDirty = false;
+    showOccludeUI();
+    draw(0);
+  });
+  occErase.addEventListener("click", function () {
+    state.occErase = !state.occErase;
+    showOccludeUI();
+  });
+  occUndoBtn.addEventListener("click", function () {
+    if (!occStrokes.length) return;
+    occStrokes.pop();
+    activeStroke = null;
+    rebuildOcclusion();
+    draw(0);
+  });
 
   // A built-in sample room so the demo works before you choose a photo.
   function sampleRoom() {
-    const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+    // Paint into a detached canvas and hand it back as `photo`, so the sample
+    // takes exactly the same path as an uploaded picture. Painting straight onto
+    // ctx used to work only because nothing cleared it first.
+    const c = document.createElement("canvas");
+    c.width = cv.width; c.height = cv.height;
+    const ctx2 = c.getContext("2d");
+    const g = ctx2.createLinearGradient(0, 0, 0, c.height);
     g.addColorStop(0, "#6d7f9c"); g.addColorStop(0.62, "#8d8a7a"); g.addColorStop(1, "#4a4038");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx2.fillStyle = g; ctx2.fillRect(0, 0, c.width, c.height);
     // back wall + floor boards
-    ctx.fillStyle = "rgba(255,255,255,.05)"; ctx.fillRect(0, 0, cv.width, cv.height * 0.62);
-    ctx.strokeStyle = "rgba(0,0,0,.16)"; ctx.lineWidth = 2;
+    ctx2.fillStyle = "rgba(255,255,255,.05)"; ctx2.fillRect(0, 0, c.width, c.height * 0.62);
+    ctx2.strokeStyle = "rgba(0,0,0,.16)"; ctx2.lineWidth = 2;
     for (let i = 1; i < 9; i++) {
-      const y = cv.height * (0.62 + i * 0.042);
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke();
+      const y = c.height * (0.62 + i * 0.042);
+      ctx2.beginPath(); ctx2.moveTo(0, y); ctx2.lineTo(c.width, y); ctx2.stroke();
     }
     // sofa (right), table (centre-left), door (left)
-    ctx.fillStyle = "#3f5a52";
-    ctx.fillRect(cv.width * 0.58, cv.height * 0.50, cv.width * 0.34, cv.height * 0.20);
-    ctx.fillStyle = "#4a6a60";
-    ctx.fillRect(cv.width * 0.60, cv.height * 0.44, cv.width * 0.30, cv.height * 0.09);
-    ctx.fillStyle = "#6b4a32";
-    ctx.beginPath(); ctx.ellipse(cv.width * 0.36, cv.height * 0.70, cv.width * 0.11, cv.height * 0.055, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = "#3b2b1e";
-    ctx.fillRect(cv.width * 0.06, cv.height * 0.24, cv.width * 0.15, cv.height * 0.60);
-    ctx.fillStyle = "#6b4a32";
-    ctx.fillRect(cv.width * 0.075, cv.height * 0.28, cv.width * 0.12, cv.height * 0.52);
-    ctx.fillStyle = "#f5c451";
-    ctx.beginPath(); ctx.arc(cv.width * 0.185, cv.height * 0.54, 5, 0, 7); ctx.fill();
+    ctx2.fillStyle = "#3f5a52";
+    ctx2.fillRect(c.width * 0.58, c.height * 0.50, c.width * 0.34, c.height * 0.20);
+    ctx2.fillStyle = "#4a6a60";
+    ctx2.fillRect(c.width * 0.60, c.height * 0.44, c.width * 0.30, c.height * 0.09);
+    ctx2.fillStyle = "#6b4a32";
+    ctx2.beginPath(); ctx2.ellipse(c.width * 0.36, c.height * 0.70, c.width * 0.11, c.height * 0.055, 0, 0, 7); ctx2.fill();
+    ctx2.fillStyle = "#3b2b1e";
+    ctx2.fillRect(c.width * 0.06, c.height * 0.24, c.width * 0.15, c.height * 0.60);
+    ctx2.fillStyle = "#6b4a32";
+    ctx2.fillRect(c.width * 0.075, c.height * 0.28, c.width * 0.12, c.height * 0.52);
+    ctx2.fillStyle = "#f5c451";
+    ctx2.beginPath(); ctx2.arc(c.width * 0.185, c.height * 0.54, 5, 0, 7); ctx2.fill();
+    photo = c;
     return "sample";
   }
 
@@ -200,11 +523,26 @@
     Object.values(pins).forEach(p => p.style.display = on ? "" : "none");
   }
   function placePins() {
-    if (!anchors) return;
+    if (!state.place || !state.stick) return;
+    const pos = {
+      base:  state.stick,
+      top:   state.stick,
+      santa: state.place,
+    };
     for (const k in pins) {
-      pins[k].style.left = (anchors[k].x / cv.width * 100) + "%";
-      pins[k].style.top = (anchors[k].y / cv.height * 100) + "%";
+      const q = k === "base" ? { x: state.stick.x1, y: state.stick.y1 }
+              : k === "top"  ? { x: state.stick.x2, y: state.stick.y2 }
+              : state.place;
+      pins[k].style.left = (q.x / cv.width * 100) + "%";
+      pins[k].style.top  = (q.y / cv.height * 100) + "%";
     }
+    // The svg is sized in percent but the handles are placed from canvas
+    // pixels, so the viewBox has to be re-stated on every resize or the drawn
+    // ruler drifts away from the markers you are dragging.
+    stickSvg.setAttribute("viewBox", `0 0 ${cv.width} ${cv.height}`);
+    stickLine.setAttribute("x1", state.stick.x1); stickLine.setAttribute("y1", state.stick.y1);
+    stickLine.setAttribute("x2", state.stick.x2); stickLine.setAttribute("y2", state.stick.y2);
+    stickLine.style.display = state.refCm > 0 ? "" : "none";
   }
 
   // ---- drag the markers ----
@@ -213,16 +551,17 @@
     const el = pins[key];
     el.addEventListener("pointerdown", e => {
       e.preventDefault(); el.setPointerCapture(e.pointerId);
-      drag = key; el.classList.add("drag"); stopPlay();
+      drag = key; el.classList.add("drag");
     });
     el.addEventListener("pointermove", e => {
-      if (drag !== key || !anchors) return;
-      const r = stage.getBoundingClientRect();
-      anchors[key] = {
-        x: Math.max(0, Math.min(cv.width, (e.clientX - r.left) / r.width * cv.width)),
-        y: Math.max(0, Math.min(cv.height, (e.clientY - r.top) / r.height * cv.height)),
-      };
-      placePins(); draw(0);
+      if (drag !== key || !state.place) return;
+      const r = cv.getBoundingClientRect();
+      const cx = Math.max(0, Math.min(cv.width, (e.clientX - r.left) / r.width * cv.width));
+      const cy = Math.max(0, Math.min(cv.height, (e.clientY - r.top) / r.height * cv.height));
+      if (key === "santa") state.place = { x: cx, y: cy };
+      else if (key === "base") { state.stick.x1 = cx; state.stick.y1 = cy; }
+      else if (key === "top")  { state.stick.x2 = cx; state.stick.y2 = cy; }
+      placePins(); draw(0); updateReadout();
     });
     const end = () => { if (drag === key) { drag = null; el.classList.remove("drag"); } };
     el.addEventListener("pointerup", end);
@@ -230,47 +569,74 @@
   }
 
   // ---- render ----
+  let cardDisplayed = false;
   function draw(time) {
+    cardDisplayed = false;
     const scene = {
-      w: cv.width, h: cv.height, anchors, photo,
-      duration: 11, light: { x: -0.55, y: 0.35 },
+      w: cv.width, h: cv.height, photo,
+      place: state.place, stick: state.stick, refCm: state.refCm,
+      pose: state.pose, refKey: state.refKey,
+      matchLight: state.matchLight,
+      light: { x: -0.55, y: 0.35 },
       tint: photo ? Scene.sampleRoomColour(ctx, cv.width, cv.height) : { r: 1, g: 1, b: 1 },
+      occlusion: (state.occlude && occPainted()) ? state.occ : null,
     };
-    Scene.renderFrame(ctx, Santa, scene, time);
+    Scene.renderFrame(ctx, Character, scene, time);
   }
 
-  function loop(ts) {
-    if (!t0) t0 = ts;
-    const el = (ts - t0) / 1000;
-    draw(el % 11.6);
-    raf = requestAnimationFrame(loop);
+  const readout = document.getElementById("readout");
+  function updateReadout() {
+    if (!state.place) return;
+    const r = Scene.solveStatic(state.place, state.stick, state.refCm, cv.width, cv.height,
+                                state.pose, state.refKey, Scene.isSeated(Character, state.pose));
+    const cm = Math.round(r.pxPerCm ? r.size / r.pxPerCm : 0);
+    readout.textContent = !r.measured
+      ? "Not measured yet — this size is a rough preview, not from your room."
+      : r.depthGap > 0.18
+        ? `Santa is about ${cm} cm, but the ruler is a long way from him — move it nearer for a truer size`
+        : `Santa is about ${cm} cm tall — measured from your room`;
   }
-  function stopPlay() { cancelAnimationFrame(raf); raf = 0; t0 = 0; }
 
-  function play() {
-    if (!anchors) return;
-    setStep(2); showPins(false); playBtn.disabled = true;
-    stopPlay(); t0 = 0; raf = requestAnimationFrame(loop);
-    setTimeout(() => {           // loop once, then hand control back
-      showPins(true); playBtn.disabled = false; setStep(1); stopPlay(); draw(0);
-    }, 11600);
-  }
+  // No play(): this is a photograph. The old button encoded 11.6 seconds of
+  // a figure that never moved.
 
   // ---- photo input: read locally, never uploaded ----
+  document.getElementById("pose").addEventListener("change", e => {
+    state.pose = e.target.value; draw(0); updateReadout();
+  });
+  document.getElementById("ref").addEventListener("change", e => {
+    const key = e.target.value;
+    const def = Scene.REFERENCES[key];
+    state.refKey = def ? key : null;
+    state.refCm = def ? def.cm : 0;
+    placePins(); draw(0); updateReadout();
+  });
+
   document.getElementById("choose").addEventListener("click", () => document.getElementById("file").click());
   document.getElementById("file").addEventListener("change", e => {
-    const f = e.target.files && e.target.files[0];
+    const input = e.target;
+    const f = input.files && input.files[0];
+    // Clear the input immediately. Browsers do not fire `change` when the same
+    // file is chosen twice, so without this, picking a photo again after
+    // fixing it silently does nothing.
+    input.value = "";
     if (!f) return;
     const url = URL.createObjectURL(f);
     const img = new Image();
     img.onload = () => {
+      URL.revokeObjectURL(url);
       // Downscale large photos: a 108MP phone photo will not fit a canvas.
-      const MAXW = 1600;
-      const s = Math.min(1, MAXW / img.width);
+      // Both sides are capped, so a tall panorama cannot blow past the limit.
+      const MAXW = 1600, MAXH = 1600;
+      const s = Math.min(1, MAXW / img.width, MAXH / img.height);
       cv.width = Math.round(img.width * s);
       cv.height = Math.round(img.height * s);
-      photo = img; URL.revokeObjectURL(url);
+      photo = img;
       reset(); setStep(1);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      note.textContent = "That file could not be read as a picture.";
     };
     img.src = url;
   });
@@ -282,15 +648,34 @@
   });
 
   function reset() {
-    anchors = {
-      door:  { x: cv.width * 0.14, y: cv.height * 0.86 },
-      sofa:  { x: cv.width * 0.72, y: cv.height * 0.72 },
-      table: { x: cv.width * 0.36, y: cv.height * 0.72 },
-    };
-    playBtn.disabled = false; wipeBtn.disabled = false;
+    // Defaults guess a typical room: furniture sits against the back wall and
+    // the floor occupies the bottom third. The user drags these anyway, but a
+    // bad default is what makes him look like he is floating on the first run.
+    state.place = { x: cv.width * 0.50, y: cv.height * 0.74 };
+    // A default ruler across roughly a fifth of the frame: harmless, and it
+    // gives the fallback size something to work from until a real measurement.
+    state.stick = { x1: cv.width * 0.10, y1: cv.height * 0.92,
+                    x2: cv.width * 0.10, y2: cv.height * 0.55 };
+    // A new photo invalidates the old ruler. Carrying the previous reference
+    // over would size the new room by a measurement taken in the old one.
+    state.refCm = 0;
+    state.refKey = null;
+    // A new photo invalidates the old ruler AND everything the engine cached
+    // from the old pixels: the mask the user painted, the room sample, the
+    // graded sprite and the depth-of-field answers.
+    state.refCm = 0;
+    state.refKey = null;
+    state.occ = null; occCtx = null; occStrokes.length = 0;
+    activeStroke = null; painting = false; paintPointer = null; lastPt = null;
+    state.occDirty = false; state.occErase = false;
+    occBox.checked = false; state.occlude = false; showOccludeUI();
+    Scene.disposePhotoData();
+    const refSel = document.getElementById("ref");
+    if (refSel) refSel.selectedIndex = 0;
+    wipeBtn.disabled = false;
     document.getElementById("cards").disabled = false;
     saveBtn.disabled = false; vertBtn.disabled = false;
-    showPins(true); placePins(); draw(0);
+    showPins(true); placePins(); draw(0); updateReadout();
   }
 
   // ---- postcards --------------------------------------------------------
@@ -299,67 +684,65 @@
   const CARDS = [
     ["evidence",    "The Evidence"],
     ["certificate", "Certificate of Good Behaviour"],
-    ["route",       "Santa's Route Log"],
+    ["route",       "Where He Sat"],
   ];
   let cardIdx = 0;
   const note = document.getElementById("note");
   function drawCard() {
-    if (!anchors) return;
+    if (!state.place) return;
     // Flatten the room into its own canvas so the card can composite it.
     const base = document.createElement("canvas");
     base.width = cv.width; base.height = cv.height;
     base.getContext("2d").drawImage(photo, 0, 0, cv.width, cv.height);
+    // Snapshot the composed scene BEFORE clearing: the postcard is rendered
+    // onto the same canvas, so reading from it after the clear copies the
+    // half-drawn postcard instead of the room — which is exactly why Santa was
+    // missing from all three keepsakes.
+    // Repaint the scene first. After the first postcard, cv holds a postcard,
+    // so snapshotting it as-is would embed the previous keepsake inside the next
+    // one, recursively, one layer per click.
+    draw(0);
+    const shot = document.createElement("canvas");
+    shot.width = cv.width; shot.height = cv.height;
+    shot.getContext("2d").drawImage(cv, 0, 0);
+
     ctx.clearRect(0, 0, cv.width, cv.height);
     Postcards.render(ctx, CARDS[cardIdx][0], {
-      w: cv.width, h: cv.height, room: base, anchors,
+      w: cv.width, h: cv.height, room: base, place: state.place,
       roomW: cv.width, roomH: cv.height,
+      santa: (c2, px, py, pw, ph) => c2.drawImage(shot, 0, 0, shot.width, shot.height, px, py, pw, ph),
       date: new Date().toLocaleDateString(undefined, { day: "numeric", month: "long" }),
     });
+    cardDisplayed = true;
   }
   document.getElementById("cards").addEventListener("click", () => {
-    if (!anchors || !photo) return;
-    stopPlay(); showPins(false); setStep(2);
+    if (!state.place || !photo) return;
+    showPins(false); setStep(2);
     drawCard();
     note.textContent = CARDS[cardIdx][1];
     cardIdx = (cardIdx + 1) % CARDS.length;
     document.getElementById("cards").textContent = "📮 Next: " + CARDS[cardIdx][1];
   });
 
-  // Vertical 9:16 for Stories / Reels / TikTok / Shorts. Re-renders at each
-  // step and letterboxes, so the door and the sofa both survive the crop.
+  // Vertical 9:16 still, for Stories / Reels / TikTok / Shorts.
+  //
+  // This used to build a video: it ran a full 11.6s render, threw that result
+  // away, then re-rendered the same unmoving figure frame by frame into a
+  // MediaRecorder. Hundreds of identical frames, and the first render existed
+  // only to be discarded. A still is the honest output, so it is a PNG now.
   vertBtn.addEventListener("click", async () => {
-    if (!anchors) return;
-    stopPlay(); showPins(false);
+    if (!state.place) return;
+    showPins(false);
     vertBtn.disabled = true;
     try {
-      const res = await ExportVideo.exportVideo(cv, sceneRenderer(), {
-        duration: 11, fps: 30,
-        onProgress: (f) => { note.textContent = "Making the vertical cut… " + Math.round(f * 100) + "%"; },
-      });
-      const v = ExportVideo.verticalCanvas(cv, { caption: "Santa came to our house 🎅" });
-      const vctx = v.getContext("2d");
-      const out = document.createElement("canvas");
-      out.width = v.width; out.height = v.height;
-      const octx = out.getContext("2d");
-      const track = v.captureStream(0);
-      const t2 = track.getVideoTracks()[0];
-      const chunks = [];
-      const mime = ExportVideo.capabilities().mime;
-      const rec = new MediaRecorder(track, { mimeType: mime, videoBitsPerSecond: 3_000_000 });
-      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-      const stopped = new Promise((r) => { rec.onstop = r; });
-      rec.start();
-      const total = res.frames;
-      for (let i = 0; i < total; i++) {
-        sceneRenderer()(i / (total - 1));
-        octx.drawImage(v, 0, 0);
-        if (t2.requestFrame) t2.requestFrame();
-        await new Promise((r) => requestAnimationFrame(r));
-      }
-      rec.stop(); await stopped; t2.stop();
-      const blob = new Blob(chunks, { type: mime });
-      ExportVideo.download(blob, ExportVideo.suggestName("vertical." + (mime.indexOf("mp4") === 0 ? "mp4" : "webm")));
-      note.textContent = "Vertical saved · " + v.width + "x" + v.height;
+      // Repaint first: after viewing a postcard the canvas holds a postcard,
+      // and the vertical export was quietly saving THAT instead of the room.
+      draw(0);
+      const v = ExportVideo.verticalCanvas(cv, { caption: "Santa came to our house \u{1F385}" });
+      const blob = await new Promise((r) => v.toBlob(r, "image/png"));
+      if (!blob || blob.size < 5000) throw new Error("The picture came out empty.");
+      ExportVideo.download(blob, ExportVideo.suggestName("vertical.png"));
+      note.textContent = "Vertical saved \u00b7 " + v.width + "\u00d7" + v.height;
     } catch (e) {
       note.textContent = "Could not save the vertical cut: " + e.message;
     } finally {
@@ -367,43 +750,58 @@
     }
   });
 
-  playBtn.addEventListener("click", play);
-
-  // ---- save the video ----------------------------------------------------
-  // Frame-paced, not wall-clock paced, so the file cannot claim a duration it
-  // does not have. See export.js for why that matters.
+  // ---- save the picture ---------------------------------------------------
+  // Was a video once: it encoded 330 identical frames of a figure that never
+  // moved. See export.js for why frame pacing mattered for the old output.
   function sceneRenderer() {
-    return (t) => Scene.renderFrame(ctx, Santa, {
-      w: cv.width, h: cv.height, anchors, photo, duration: 11,
+    return (t) => Scene.renderFrame(ctx, Character, {
+      w: cv.width, h: cv.height, photo,
+      place: state.place, stick: state.stick, refCm: state.refCm,
+      pose: state.pose, refKey: state.refKey,
+      matchLight: state.matchLight,
       light: { x: -0.55, y: 0.35 },
       tint: photo ? Scene.sampleRoomColour(ctx, cv.width, cv.height)
                   : { r: 1, g: 1, b: 1 },
+      occlusion: (state.occlude && occPainted()) ? state.occ : null,
     }, t * 11);
   }
 
+  // This used to report MediaRecorder capability, frame pacing and WebCodecs —
+  // all facts about a video exporter the app no longer calls. The app now saves
+  // stills, so the honest answer is what it actually does.
   capsBtn.addEventListener("click", () => {
-    const c = ExportVideo.capabilities();
-    note.textContent = c.mediaRecorder
-      ? "Recorder: " + c.mime + (c.sharesToWhatsApp ? " (WhatsApp-ready)" : " (not WhatsApp-ready)") +
-        " · frame-paced: " + (c.deterministic ? "yes" : "no, falls back to realtime") +
-        " · WebCodecs: " + (c.webCodecs ? "yes" : "no")
-      : "This browser cannot record video.";
+    const r = Scene.solveStatic(state.place, state.stick, state.refCm, cv.width, cv.height,
+                                state.pose, state.refKey, Scene.isSeated(Character, state.pose));
+    note.textContent = r.measured
+      ? "Saved as one still PNG. Santa is scaled from your own measurement (" +
+        Math.round(r.size / r.pxPerCm) + " cm). Nothing is uploaded."
+      : "Saved as one still PNG. You have not measured anything yet, so Santa's " +
+        "size is a rough preview, not from your room. Nothing is uploaded.";
   });
 
   saveBtn.addEventListener("click", async () => {
-    if (!anchors) return;
-    stopPlay(); showPins(false);
+    if (!state.place) return;
+    showPins(false);
     saveBtn.disabled = true;
     const was = note.textContent;
     try {
-      const res = await ExportVideo.exportVideo(cv, sceneRenderer(), {
-        duration: 11, fps: 30,
-        onProgress: (f) => { note.textContent = "Recording… " + Math.round(f * 100) + "%"; },
-      });
-      if (res.size < 10000) throw new Error("The recording came out empty.");
-      ExportVideo.download(res.blob, ExportVideo.suggestName(res.mime.indexOf("mp4") === 0 ? "mp4" : "webm"));
-      note.textContent = "Saved · " + (res.size / 1048576).toFixed(1) + " MB · " +
-        res.mime.split(";")[0] + (res.deterministic ? " · frame-accurate" : " · realtime");
+      // A still, not a recording. The old path encoded 330 frames of a picture
+      // that never changes, which made a video file out of something that is
+      // plainly a photograph and cost the user the time to watch it.
+      let blob;
+      if (cardDisplayed) {
+        // Export exactly the card the user is looking at. Cards already carry
+        // their own AI badge, so do not stamp a duplicate over the design.
+        const target = document.createElement("canvas");
+        target.width = cv.width; target.height = cv.height;
+        target.getContext("2d").drawImage(cv, 0, 0);
+        blob = await new Promise((r) => target.toBlob(r, "image/png"));
+      } else {
+        blob = await ExportVideo.exportStill(cv, sceneRenderer(), 0);
+      }
+      if (!blob || blob.size < 5000) throw new Error("The picture came out empty.");
+      ExportVideo.download(blob, ExportVideo.suggestName("png"));
+      note.textContent = "Saved · " + (blob.size / 1048576).toFixed(1) + " MB · png";
     } catch (e) {
       note.textContent = "Could not save: " + e.message;
     } finally {
@@ -411,22 +809,35 @@
       setTimeout(() => { if (note.textContent.indexOf("Saved") === 0) note.textContent = was; }, 4000);
     }
   });
-  document.getElementById("light").addEventListener("change", () => draw(0));
+  document.getElementById("light").addEventListener("change", (e) => {
+    state.matchLight = e.target.checked; draw(0);
+  });
 
   // The privacy kill switch (FR-19): drop every trace of the photo.
   wipeBtn.addEventListener("click", () => {
-    stopPlay();
     if (photo) { photo.src && (photo.src = ""); photo = null; }
     document.getElementById("file").value = "";
-    anchors = null; showPins(false);
+    state.place = null; state.stick = null; state.refCm = 0; showPins(false);
+    // The painted mask is drawn from the user's photo, so it is part of what
+    // "forget my photo" has to drop — and so is everything the engine cached
+    // out of those pixels. Clearing the <img> and the visible canvas is not
+    // enough; the scratch canvases would keep the room in memory for the life
+    // of the tab, which is exactly what the page promises never happens.
+    state.occ = null; occCtx = null; occStrokes.length = 0; activeStroke = null;
+    painting = false; paintPointer = null; lastPt = null;
+    occBox.checked = false; state.occlude = false; state.occDirty = false;
+    state.occErase = false; cardDisplayed = false;
+    showOccludeUI();
+    Scene.disposePhotoData();
     ctx.clearRect(0, 0, cv.width, cv.height);
-    playBtn.disabled = true; wipeBtn.disabled = true;
+    wipeBtn.disabled = true;
     document.getElementById("cards").disabled = true;
     saveBtn.disabled = true; vertBtn.disabled = true; setStep(0);
   });
 
   // Start on the sample so the page is never empty.
-  cv.width = 900; cv.height = 560; sampleRoom(); showPins(false);
+  cv.width = 900; cv.height = 560;
+  sampleRoom(); reset(); showPins(false); setStep(1);
 })();
 </script>
 </body>

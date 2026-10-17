@@ -78,9 +78,9 @@
     const sitting = p.sit === 1;
 
     // ---- Ground reference ------------------------------------------------
-    // When standing, feet at y=0. When seated, the hips sit at the seat line
-    // and the shins drop below it, so the caller can align the seat, not the
-    // feet, with the anchor point.
+    // When standing, feet end at y=0. The seated drawing is authored around
+    // hips y=0 and extends below it; feetOffset metadata lets the engine shift
+    // that internal origin so the boots still land on the placement point.
     const hipY = sitting ? 0 : -34;
     const shoulderY = hipY - 22;
     const neckY = shoulderY - 4;
@@ -97,8 +97,8 @@
       ellipse(16, hipY + 22, 9, 4.5, C.boot);
     } else {
       // Legs drop from the hips toward the floor: y must INCREASE.
-      limb(-6, hipY, -6 + swing, hipY + 20, 9, C.suitDark);
-      ellipse(-6 + swing, hipY + 22, 7.5, 4.2, C.boot);
+      limb(-6, hipY, -6 + swing, hipY + 27.8, 9, C.suitDark);
+      ellipse(-6 + swing, -4.2, 7.5, 4.2, C.boot);
     }
 
     // ---- Torso: the suit -------------------------------------------------
@@ -205,8 +205,8 @@
       limb(20, hipY - 2, 21, hipY + 20, 8, C.suit);
       ellipse(22, hipY + 22, 9, 4.5, C.boot);
     } else {
-      limb(6, hipY, 6 - swing, hipY + 20, 9, C.suit);
-      ellipse(6 - swing, hipY + 22, 7.5, 4.2, C.boot);
+      limb(6, hipY, 6 - swing, hipY + 27.8, 9, C.suit);
+      ellipse(6 - swing, -4.2, 7.5, 4.2, C.boot);
     }
 
     // ---- Held props ------------------------------------------------------
@@ -315,19 +315,40 @@
   }
 
   global.Santa = {
+    cacheKey: "vector-santa-v1",
     colors: C,
     poses: POSES,
     build: buildSanta,
     toSVG, toCanvas,
-    /** Nominal height of the character in local units (feet 0 → hat ~-56). */
-    get height() {
-      const shapes = buildSanta("stand");
-      let min = 0, max = 0;
-      for (const s of shapes) {
-        if (s.t === "circle") { min = Math.min(min, s.cy - s.r); max = Math.max(max, s.cy + s.r); }
-        if (s.t === "ellipse") { min = Math.min(min, s.cy - s.ry); max = Math.max(max, s.cy + s.ry); }
-      }
-      return max - min;
+    /* Poses this character actually draws SEATED — thighs forward, shins down,
+       seat included in the silhouette. The engine sizes a seated pose at 1.50m
+       and a standing one at 1.85m, so this has to be declared per character:
+       the photographed sprites draw these same names as standing figures with
+       no chair in them, and sized them as seated they read as short people. */
+    seatedPoses: { sit: 1, reach: 1, drink: 1, eat: 1 },
+    /* Lowest painted point below local y=0, in character units. Standing
+       boots end above the origin. In seated poses the boot ellipses are
+       centred at y=22 with ry=4.5, so their measured lower edge is +26.5.
+       engine.js uses this in both aspectOf() and offscreenFor(). */
+    feetOffset: {
+      stand: 0, walk: 0, walk2: 0, cheer: 0, wave: 0,
+      sit: 26.5, reach: 26.5, drink: 26.5, eat: 26.5,
     },
+    /* Seated alpha spans 61 units above + 26.5 below the local origin.
+       95/87.5 keeps its body scale consistent with the 95-unit standing body. */
+    poseScale: {
+      stand: 1, walk: 1, walk2: 1, cheer: 1, wave: 1,
+      sit: 95 / 87.5, reach: 95 / 87.5,
+      drink: 95 / 87.5, eat: 95 / 87.5,
+    },
+    /* Highest painted point above local y=0. The standing hat path reaches
+       y=-95; seated torsos move 34 units down, so their hat reaches y=-61.
+       This keeps the scratch canvas tight without clipping either end. */
+    topOffset: {
+      stand: 95, walk: 95, walk2: 95, cheer: 95, wave: 95,
+      sit: 61, reach: 61, drink: 61, eat: 61,
+    },
+    /** Nominal standing body height in local units (origin to hat tip). */
+    height: 95,
   };
 })(typeof window !== "undefined" ? window : globalThis);

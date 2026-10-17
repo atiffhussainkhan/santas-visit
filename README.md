@@ -2,10 +2,14 @@
 
 Put Santa in your own living room.
 
-Upload a photo of your room, tap where your **door**, **sofa** and **table**
-are, and watch Santa walk in, sit down, eat the cookie, drink the milk and
-slip away. Then keep it — as a video, a vertical clip for Stories, or a printed
-postcard.
+Upload a photo of your room, measure one real object in it with a ruler —
+a **door**, a **coffee table**, an **adult** — and Santa is scaled to your room
+and placed wherever you want him. Brush over any furniture that stands in front
+of him and he goes behind it. Then keep it: a still, a 9:16 cut for Stories, or
+a printed postcard.
+
+It is a photograph, not a film. He does not walk in, sit down and leave; he is
+in the room, in one frame, at a size derived from your own measurement.
 
 **Your photo is never uploaded. It stays on your device, always.**
 
@@ -14,9 +18,9 @@ postcard.
 ## Why this exists
 
 Ten competing apps do this by transforming *your face*. Nobody composes a
-character into the room itself. Here you mark the furniture, and Santa is
-placed in **your** space — scaled to it, walking the distances between the
-points you chose. That is the whole product.
+character into the room itself. Here you measure something real and Santa is
+placed in **your** space — scaled to it, graded to its light, softened to its
+focus, and hidden behind its furniture. That is the whole product.
 
 ## Run it
 
@@ -36,13 +40,14 @@ python3 tools/device_server.py 8099
 bash tools/run_all.sh
 ```
 
-Three gates, all of which must pass:
+Four gates, all of which must pass:
 
 | Gate | Proves |
 |---|---|
 | `check_privacy.py` | No third-party script, remote resource or beacon on a page that handles a photo. **Fails the build.** |
 | file integrity | Every source file present and balanced |
 | `check_art.py` | Any commissioned Santa art is usable before it is wired in |
+| `check_requirements.py` | Product behaviours plus executable compositing/export maths |
 
 ## The privacy promise, and why it is real
 
@@ -61,12 +66,12 @@ true rather than aspirational:
 
 | Path | What it is |
 |---|---|
-| `index.html` | The tool. Photo → three anchors → play → save |
+| `index.html` | The tool. Photo → measure → place → hide behind furniture → save |
 | `santa.js` | The character: nine poses, drawn in code, shaded |
-| `santa-photo.js` | Drop-in adapter for commissioned photoreal art |
-| `engine.js` | Anchors, walk path, perspective, snow, glow, contact shadow, colour grade |
+| `santa-photo.js` | Drop-in adapter for the photoreal sprite set (ships in `assets/santa/`) |
+| `engine.js` | Static placement, ruler scaling, ground shadow, and the compositing grade: luminance, white balance, chroma, grain, defocus, light wrap, occlusion |
 | `postcards.js` | Three keepsakes built from the room |
-| `export.js` | Frame-paced video export, 9:16 vertical cut |
+| `export.js` | Still PNG export, 9:16 vertical cut, AI disclosure stamp |
 | `mobile_test.html` | On-device export test that reports its verdict back |
 | `tools/` | The QA suite, the art intake checker, the commission helpers |
 | `docs/` | Requirements, DPIA, commission brief, reviews |
@@ -88,8 +93,11 @@ true rather than aspirational:
 
 Built by **Atif Hussain** — <atiff.khan@yahoo.com>
 
-No accounts. No payment. No advertising. No tracking. The character is drawn in
-code, so there is no third-party art licence attached to this project.
+No accounts. No payment. No advertising. No tracking. The fallback character is
+drawn in code; the shipped photoreal PNG set has unresolved rights/provenance
+and payload-size blockers recorded honestly in
+[`docs/asset-provenance.md`](docs/asset-provenance.md). Do not publish those
+assets until the rights are cleared.
 
 > The DPIA is an engineering record, not legal advice. Have it reviewed before
 > publishing.
